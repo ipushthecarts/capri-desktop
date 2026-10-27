@@ -1,0 +1,49 @@
+name: Publish full release
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-full-release.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - name: Verify compiled downloads and publish full release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag=v0.6.2-local.1
+          gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json assets > release-assets.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          assets = json.loads(Path('release-assets.json').read_text())['assets']
+          names = {item['name'] for item in assets}
+          required = {
+              'Capri-Local.exe', 'Capri-Local-Windows.zip',
+              'capri-local_0.6.2+local.1_amd64.deb',
+              'capri-local-0.6.2.local.1-1-x86_64.pkg.tar.zst',
+              'Capri-Local-linux-x64.tar.gz',
+              'Capri-Local-mac-arm64.dmg', 'Capri-Local-mac-arm64.zip',
+              'Capri-Local-mac-x64.dmg', 'Capri-Local-mac-x64.zip',
+              'SHA256SUMS.txt',
+          }
+          missing = required - names
+          if missing:
+              raise SystemExit('Missing compiled downloads: ' + ', '.join(sorted(missing)))
+          notes = Path('packaging/RELEASE-NOTES.md').read_text().replace('These preview binaries', 'These binaries')
+          Path('full-release-notes.md').write_text(notes)
+          print('Verified all ten release assets.')
+          PY
+          gh release edit "$tag" --repo "$GITHUB_REPOSITORY" --draft=false --prerelease=false --latest --title 'Capri Local 0.6.2 - Windows, Linux and macOS' --notes-file full-release-notes.md
+          gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json url,isDraft,isPrerelease,assets
