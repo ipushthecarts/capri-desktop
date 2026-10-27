@@ -1,6 +1,8 @@
 # Capri Local Voice
 
-A personal-use modification of Capri for Windows that speaks without ElevenLabs keys, credits, or a paid speech subscription.
+**Downloads and installation:** [PACKAGES.md](PACKAGES.md) · [Releases](https://github.com/ipushthecarts/capri-desktop/releases)
+
+A personal-use modification of Capri for Windows, Linux, and macOS that speaks without ElevenLabs keys, credits, or a paid speech subscription.
 
 **Original project / main repository:** https://github.com/lachydotmcg/capri-desktop
 
@@ -38,6 +40,10 @@ Start-PocketVoice.cmd --port 8766 --threads 2
 Choose the same port in Capri. The default is 8765.
 
 You can create a reference sample separately with Qwen3-TTS VoiceDesign and choose that sample in Capri. This project does not bundle Qwen, provide an ElevenLabs voice-ID importer, or guarantee an exact match to the original character's voice. Pocket TTS synthesizes new speech from the reference; it does not play a fixed collection of recordings.
+
+## Linux and Mac
+
+Linux and Mac now support typed questions with local spoken replies. Choose **Local voice settings** from the tray/right-click menu or click the wave button. Use the system voice (Linux `espeak-ng`, Mac `say`) or the optional Pocket TTS server. The Debian/Arch packages include the Linux speech dependency; portable users install it separately. Microphone chat remains Windows-only. See [PACKAGES.md](PACKAGES.md) for installers, runtime dependencies, and Pocket setup commands.
 
 ## What changed
 

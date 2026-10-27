@@ -52,6 +52,9 @@ namespace CapriDesktop
                 NativeMenuItem quit = new NativeMenuItem("Quit Capri");
                 quit.Click += delegate { pet.Quit(); };
                 menu.Items.Add(talk);
+                NativeMenuItem voice = new NativeMenuItem("Local voice settings");
+                voice.Click += delegate { pet.NoVoice(); };
+                menu.Items.Add(voice);
                 menu.Items.Add(bring);
                 menu.Items.Add(new NativeMenuItemSeparator());
                 menu.Items.Add(quit);

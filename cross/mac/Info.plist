@@ -3,11 +3,11 @@
 <plist version="1.0">
 <dict>
   <key>CFBundleName</key>
-  <string>Capri</string>
+  <string>Capri Local</string>
   <key>CFBundleDisplayName</key>
-  <string>Capri</string>
+  <string>Capri Local</string>
   <key>CFBundleIdentifier</key>
-  <string>io.github.lachydotmcg.capri</string>
+  <string>io.github.ipushthecarts.capri-local</string>
   <key>CFBundleExecutable</key>
   <string>Capri</string>
   <key>CFBundleIconFile</key>

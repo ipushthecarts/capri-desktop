@@ -1,0 +1,152 @@
+name: Build install packages
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'cross/**'
+      - 'app/**'
+      - 'assets/**'
+      - 'local-voice/**'
+      - 'packaging/**'
+      - '*PocketVoice*'
+      - '*Local*'
+      - 'PACKAGES.md'
+      - '.github/workflows/install-packages.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: install-packages-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Tests and Windows executable
+        shell: powershell
+        run: |
+          python -m pip install numpy
+          python -m unittest discover -s tests -v
+          if ($LASTEXITCODE -ne 0) { throw 'Python tests failed' }
+          ./Build-Local.ps1
+          ./Test-Local.ps1
+          Remove-Item dist/VoiceTransportTests.exe
+          Copy-Item PACKAGES.md dist/
+          New-Item -ItemType Directory -Force release | Out-Null
+          Copy-Item dist/Capri-Local.exe release/
+          Compress-Archive -Path dist/* -DestinationPath release/Capri-Local-Windows.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-windows
+          path: release/*
+          if-no-files-found: error
+
+  linux:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+      - name: Install desktop and packaging dependencies
+        run: |
+          sudo apt-get update -q
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends xvfb xauth openbox xcompmgr libice6 libsm6 libfontconfig1 zstd dpkg-dev espeak-ng pulseaudio-utils
+      - name: Build self-contained Linux app
+        run: dotnet publish cross/Capri.Cross.csproj -c Release -r linux-x64 --self-contained -o out/linux -p:DebugType=none
+      - name: Desktop smoke test
+        timeout-minutes: 5
+        run: |
+          chmod +x out/linux/Capri
+          xvfb-run -a -s '-screen 0 1920x1080x24' bash -c 'openbox & sleep 2; xcompmgr & sleep 1; out/linux/Capri --smoke "$PWD/smoke/linux"'
+          cat smoke/linux/smoke-test.txt
+          ! grep -q '^FAIL' smoke/linux/smoke-test.txt
+      - name: Package Debian, Arch, and portable Linux builds
+        run: bash packaging/package-linux.sh 0.6.2+local.1
+      - name: Verify Debian package installs
+        run: |
+          sudo apt-get install -y ./release/*.deb
+          dpkg-query -W capri-local
+          test -x /opt/capri-local/Capri
+      - name: Verify Arch package installs
+        timeout-minutes: 8
+        run: |
+          docker run --rm -v "$PWD/release:/packages:ro" archlinux:base bash -lc 'pacman -Sy --noconfirm && pacman -U --noconfirm /packages/*.pkg.tar.zst && pacman -Q capri-local'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-linux
+          path: release/*
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: smoke-linux-local
+          path: smoke/
+
+  mac:
+    runs-on: macos-15
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [arm64, x64]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+      - name: Build self-contained Mac app
+        run: dotnet publish cross/Capri.Cross.csproj -c Release -r osx-${{ matrix.arch }} --self-contained -o out/osx-${{ matrix.arch }} -p:DebugType=none
+      - name: Package app, ZIP and DMG
+        run: bash packaging/package-mac.sh ${{ matrix.arch }}
+      - name: Mac desktop smoke test
+        timeout-minutes: 5
+        run: |
+          "stage/mac-${{ matrix.arch }}/Capri Local.app/Contents/MacOS/Capri" --smoke "$PWD/smoke/mac-${{ matrix.arch }}"
+          cat "smoke/mac-${{ matrix.arch }}/smoke-test.txt"
+          ! grep -q '^FAIL' "smoke/mac-${{ matrix.arch }}/smoke-test.txt"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-mac-${{ matrix.arch }}
+          path: release/*
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: smoke-mac-local-${{ matrix.arch }}
+          path: smoke/
+
+  release:
+    needs: [windows, linux, mac]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          merge-multiple: true
+          path: release
+      - name: Publish preview downloads and checksums
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd release
+          sha256sum * > SHA256SUMS.txt
+          tag=v0.6.2-local.1
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$tag" ./* --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create "$tag" ./* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease --title 'Capri Local 0.6.2 - preview 1' --notes-file ../packaging/RELEASE-NOTES.md
+          fi

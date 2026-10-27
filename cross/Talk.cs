@@ -354,7 +354,7 @@ namespace CapriDesktop
             Typer.Submitted += delegate(string text) { pet.Hear(text); };
             Pill.Typing += delegate { if (Typer.IsVisible) Typer.Hide(); else Open(); };
             Pill.Voice += delegate { pet.NoVoice(); };
-            Bubble.Dismissed += delegate { if (leaving < 0) leaving = pet.Now; };
+            Bubble.Dismissed += delegate { pet.Speech.Stop(); if (leaving < 0) leaving = pet.Now; };
         }
 
         internal string Reply { get { return reply; } }
@@ -374,6 +374,7 @@ namespace CapriDesktop
 
         internal void Thinking(string heard)
         {
+            pet.Speech.Stop();
             reply = null;
             thinking = true;
             replyDone = -1;
@@ -387,6 +388,7 @@ namespace CapriDesktop
             replyStart = pet.Now;
             replyDone = -1;
             Start(heard);
+            if (Program.Smoke == null) pet.Speech.Say(answer, pet.Saved, delegate(string problem) { Bubble.Sheet.Heard = "Voice: " + problem; Bubble.Sheet.InvalidateVisual(); });
         }
 
         private void Start(string heard)
@@ -403,6 +405,7 @@ namespace CapriDesktop
 
         internal void Dismiss()
         {
+            pet.Speech.Stop();
             reply = null;
             thinking = false;
             leaving = -1;
@@ -419,7 +422,7 @@ namespace CapriDesktop
             {
                 sheet.Revealed = Math.Min(reply.Length, (int)((now - replyStart) * LettersPerSecond));
                 if (sheet.Revealed >= reply.Length && replyDone < 0) replyDone = now;
-                if (replyDone >= 0 && leaving < 0 && !Typer.IsVisible && now > replyDone + Math.Min(14, 4 + reply.Length * 0.05)) leaving = now;
+                if (replyDone >= 0 && leaving < 0 && !Typer.IsVisible && !pet.Speech.Busy && now > replyDone + Math.Min(14, 4 + reply.Length * 0.05)) leaving = now;
             }
             double glitch = 0;
             if (opened >= 0 && now - opened < 0.2) glitch = 1 - (now - opened) / 0.2;
@@ -447,6 +450,7 @@ namespace CapriDesktop
 
         internal int MouthCell(double now)
         {
+            if (pet.Speech.Mouth >= 0) return pet.Speech.Mouth;
             if (reply == null || replyDone >= 0 || replyStart < 0) return -1;
             int step = (int)((now - replyStart) * MouthRate);
             int letter = (int)((now - replyStart) * LettersPerSecond);

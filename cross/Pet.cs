@@ -25,6 +25,10 @@ namespace CapriDesktop
         [DataMember] internal bool Placed;
         [DataMember] internal double Size = 240;
         [DataMember] internal string Model;
+        [DataMember] internal bool? LocalVoiceEnabled;
+        [DataMember] internal string LocalVoiceProvider;
+        [DataMember] internal string LocalPocketVoice;
+        [DataMember] internal int LocalPocketPort;
     }
 
     internal sealed class Clip
@@ -109,6 +113,7 @@ namespace CapriDesktop
         private static readonly string[] SizeNames = { "Small", "Medium", "Large", "Huge" };
         internal readonly Brain Brain = new Brain();
         internal readonly Talk Talk;
+        internal readonly LocalSpeech Speech = new LocalSpeech();
         internal Desk Desk = Desk.Make();
         internal Func<string, string> Think;
         internal Settings Saved;
@@ -153,7 +158,7 @@ namespace CapriDesktop
         internal Pet(IClassicDesktopStyleApplicationLifetime desktop)
         {
             this.desktop = desktop;
-            folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Capri");
+            folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Capri-Local");
             Saved = Program.Smoke != null ? new Settings() : Load();
             Brain.LogPath = Path.Combine(Program.Smoke ?? folder, "errors.txt");
             Title = "Capri";
@@ -540,7 +545,7 @@ namespace CapriDesktop
 
         internal void NoVoice()
         {
-            Talk.Answer("(voice)", "Voice chat isn't on Mac and Linux yet. Type to me for now, choom.");
+            LocalSpeech.Configure(this);
         }
 
         internal void Grab()
@@ -598,6 +603,9 @@ namespace CapriDesktop
             MenuItem quit = new MenuItem { Header = "Quit Capri" };
             quit.Click += delegate { Quit(); };
             menu.Items.Add(talk);
+            MenuItem voice = new MenuItem { Header = "Local voice settings" };
+            voice.Click += delegate { NoVoice(); };
+            menu.Items.Add(voice);
             menu.Items.Add(sit);
             menu.Items.Add(sizes);
             menu.Items.Add(discord);
@@ -690,6 +698,7 @@ namespace CapriDesktop
             Save();
             frames.Stop();
             Brain.Cancel();
+            Speech.Stop();
             Talk.Dismiss();
             desktop.Shutdown(0);
         }

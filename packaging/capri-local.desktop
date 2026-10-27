@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Capri Local
+Comment=Desktop companion with local speech
+Exec=/opt/capri-local/Capri
+Icon=capri-local
+Terminal=false
+Type=Application
+Categories=Utility;

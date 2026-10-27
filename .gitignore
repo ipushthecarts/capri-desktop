@@ -2,3 +2,8 @@
 __pycache__/
 dist/
 *.pyc
+out/
+stage/
+release/
+cross/bin/
+cross/obj/
