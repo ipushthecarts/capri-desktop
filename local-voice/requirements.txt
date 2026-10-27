@@ -1,0 +1,2 @@
+# Tested against the upstream Python API at Pocket TTS 4.0.1.
+pocket-tts==4.0.1

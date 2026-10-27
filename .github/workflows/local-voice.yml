@@ -1,0 +1,54 @@
+name: Local voice build and checks
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'app/**'
+      - 'assets/**'
+      - 'local-voice/**'
+      - 'tests/**'
+      - '*Local*'
+      - '*PocketVoice*'
+      - '.github/workflows/local-voice.yml'
+  pull_request:
+    paths:
+      - 'app/**'
+      - 'local-voice/**'
+      - 'tests/**'
+      - '*Local*'
+      - '.github/workflows/local-voice.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Python adapter checks
+        run: |
+          python -m pip install numpy
+          python -m unittest discover -s tests -v
+      - name: Windows build
+        shell: powershell
+        run: ./Build-Local.ps1
+      - name: Speech transport checks
+        shell: powershell
+        run: ./Test-Local.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Capri-Local-Windows
+          path: |
+            dist/Capri-Local.exe
+            dist/Start-PocketVoice.cmd
+            dist/Setup-PocketVoice.cmd
+            dist/local-voice/
+            dist/LOCAL-VOICE.md
+            dist/LICENSE.md
+            dist/README.md
+            dist/OFL-ShareTechMono.txt

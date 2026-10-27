@@ -1,123 +1,80 @@
-<p align="center">
-  <img src="assets/chip-source.png" alt="Chip" width="40%" align="middle">
-  <img src="assets/capri.png" alt="Capri" width="40%" align="middle">
-</p>
+# Capri Local Voice
 
-<p align="center">
-  Bring Capri (back lol) to life as a desktop companion! Inspired by jpartnma_'s tiktok video.
-</p>
+A personal-use modification of Capri for Windows that speaks without ElevenLabs keys, credits, or a paid speech subscription.
 
-<p align="center">
-  <a href="https://github.com/lachydotmcg/capri-desktop/releases/latest/download/Capri-Setup.exe"><b>Download for Windows</b></a>
-  &nbsp;·&nbsp;
-  <a href="#mac-and-linux-early-preview">Mac and Linux</a>
-  &nbsp;·&nbsp;
-  <a href="https://lachydotmcg.github.io/capri-desktop/setup/">Setup guide</a>
-  &nbsp;·&nbsp;
-  <a href="https://lachydotmcg.github.io/capri-desktop/">Website</a>
-  &nbsp;·&nbsp;
-  <a href="https://discord.gg/F4fDHfGtFk">Discord</a>
-</p>
+**Original project / main repository:** https://github.com/lachydotmcg/capri-desktop
 
-<table align="center">
-  <tr>
-    <td align="center"><img src="assets/readme/idle.webp" alt="Capri idling and blinking" width="150"><br><sub>Hanging out</sub></td>
-    <td align="center"><img src="assets/readme/talk.webp" alt="Capri talking" width="150"><br><sub>Talking</sub></td>
-    <td align="center"><img src="assets/readme/tossed.webp" alt="Capri flailing while dragged" width="150"><br><sub>Getting tossed</sub></td>
-    <td align="center"><img src="assets/readme/glitch.webp" alt="Capri glitching" width="150"><br><sub>Glitching</sub></td>
-    <td align="center"><img src="assets/readme/sleep.webp" alt="Capri asleep, then booting back up" width="150"><br><sub>Napping</sub></td>
-  </tr>
-</table>
+**Pocket TTS:** https://github.com/kyutai-labs/pocket-tts
 
-Beware that Capri may try to take over your human CPU. We take no responsibility for her actions.
+This is an unofficial modification, not an upstream Capri release. Original Capri code, art, and required copyright notices remain credited to Lachy. The original PolyForm Noncommercial license remains in [LICENSE.md](LICENSE.md). This change does not relicense Capri as MIT or Apache.
 
-## What she does
+## Quick start: no Python needed
 
-- **Talks back.** Type to her and she answers in her own words.
-- **Talks out loud.** Add an ElevenLabs key and she speaks, or voice chat with her.
-- **Does things for you.** Ask her to open apps, play music or close a tab.
-- **Watches you play.** Turn it on and she comments on your games.
-- **Sits on your stuff.** Drop her on a window, an icon or the bottom of your screen.
+1. Extract the complete source ZIP on Windows 10/11, or clone this repository.
+2. Double-click `Build-Local.cmd`. It uses the .NET Framework compiler included with normal Windows 10/11 installations; no Visual Studio project is required. If Windows PowerShell blocks the script, review `Build-Local.ps1` and unblock the downloaded files through their Properties dialog.
+3. Open `dist/Capri-Local.exe`.
+4. Set up Capri's chat model as usual, or use an existing Ollama instance.
+5. Under **VOICE**, open **Configure local voice**, select a Windows voice, save, then press **Test**. Leave **Speak replies** checked.
 
-<p align="center">
-  <img src="assets/readme/bubble.png" alt="Capri's speech box with the pencil and wave buttons" width="31%">
-  <img src="assets/readme/sit.png" alt="Capri sitting on a window" width="31%">
-  <img src="assets/readme/mainframe.png" alt="The Capri Mainframe" width="22%">
-</p>
+A compiled `Capri-Local.exe` may also be included in the accompanying portable ZIP. Windows voices work without the Python server. They are basic system voices; a custom character voice requires Pocket TTS.
 
-## What you need
+## Custom voice with Pocket TTS
 
-- Windows 10 or 11 (64-bit). Nothing else to install.
-- A mic, if you want to voice chat.
+1. Install 64-bit Python 3.12 with its Python launcher: https://www.python.org/downloads/windows/
+2. From the same folder as `Capri-Local.exe`, run `Setup-PocketVoice.cmd` once. It creates a private Python environment and installs CPU PyTorch plus Pocket TTS 4.0.1.
+3. Run `Start-PocketVoice.cmd` and leave its window open.
+4. In Capri, select **Pocket TTS** under **Configure local voice**.
+5. Start with the preset `alba`, or browse to a clean local WAV recording of the voice you want. MP3, FLAC, and exported Pocket TTS safetensors voices are also accepted.
+6. Save and press **Test**. The first request downloads and loads the model and selected preset. First-time downloads may exceed the client's two-minute timeout; leave the server open, wait for it to finish, and try again.
 
-| | Brain on your PC | Brain from a key (like the free NVIDIA one) |
-| --- | --- | --- |
-| Memory | 8 GB, 16 GB is better | 4 GB |
-| Graphics card | Optional, but 4 GB or more makes her faster | Not needed |
-| Space | 3 to 5 GB | Under 100 MB |
-| Internet | Only for the download | Always |
+The model and selected voice state stay in memory between replies. The server runs on CPU with two PyTorch threads by default, leaving room for the rest of your desktop. Exact latency on an X1 Carbon Gen 9 has not been measured. Running a chat model on the same CPU will affect responsiveness.
 
-## Getting started
+To change the port or thread count, run from a terminal:
 
-1. Download **Capri-Setup.exe** and run it
-2. In the Capri Mainframe, press **Set up her brain**, or press **Free key** to use a free NVIDIA key
-3. Optional: paste an ElevenLabs key so she can talk. Make the key with **Restrict key** turned off
+```bat
+Start-PocketVoice.cmd --port 8766 --threads 2
+```
 
-Stuck? The [setup guide](https://lachydotmcg.github.io/capri-desktop/setup/) walks through it, or ask in the [Discord](https://discord.gg/F4fDHfGtFk).
+Choose the same port in Capri. The default is 8765.
 
-Windows or your antivirus may warn you because it's a new app. All the code is here.
+You can create a reference sample separately with Qwen3-TTS VoiceDesign and choose that sample in Capri. This project does not bundle Qwen, provide an ElevenLabs voice-ID importer, or guarantee an exact match to the original character's voice. Pocket TTS synthesizes new speech from the reference; it does not play a fixed collection of recordings.
 
-## Mac and Linux (early preview)
+## What changed
 
-She sits on your windows and chats. Voice, the Mainframe and doing things for you are Windows-only for now.
-
-1. Download [Mac (Apple Silicon)](https://github.com/lachydotmcg/capri-desktop/releases/latest/download/Capri-mac-apple-silicon.zip), [Mac (Intel)](https://github.com/lachydotmcg/capri-desktop/releases/latest/download/Capri-mac-intel.zip) or [Linux](https://github.com/lachydotmcg/capri-desktop/releases/latest/download/Capri-linux-x64.tar.gz)
-2. Install [Ollama](https://ollama.com), then run `ollama pull gemma4:e4b` for her brain
-3. **Mac:** unzip it and open Capri. If macOS says it can't check her, open System Settings → Privacy & Security and click **Open Anyway**. Needs macOS 15 or newer
-4. **Linux:** unpack it and run `Capri/Capri`. She sits on windows on X11; on Wayland she sits on the bottom of your screen
-
-## How to use her
-
-- **Pencil:** type to her
-- **Wave:** voice chat
-- **Drag her:** sit her on a window
-- **Right-click her** or the tray icon: menu and settings
-
-Just ask her for things, like "open Spotify", "play Blinding Lights", "pause", "what's playing?" or "close Discord".
-
-<details>
-<summary>All controls</summary>
-
-| Control | What it does |
+| Area | Change |
 | --- | --- |
-| Shift + drop | sit her right where you drop her |
-| Ctrl + drop | she hangs on; click her to let go |
-| Mic button | mute your mic in voice chat |
-| Ctrl + Alt + V | start or stop voice chat |
-| Ctrl + Alt + N | mute your mic |
-| Ctrl + Alt + C | get her off your cursor |
-| Right-click, Move | she hops between your open windows |
-| Watch my screen | in the Mainframe: she comments as you play |
-| Speak replies | in the Mainframe: turn off to save ElevenLabs credits |
+| Speech output | Windows offline speech is the default; optional Pocket TTS supports custom reference voices. |
+| Voice settings | Replaced the visible ElevenLabs key, voice ID, and model controls with a local voice configuration dialog. Provider, Windows voice, reference path, and port are saved. |
+| Voice chat | The wave button uses the existing local chat/recognition pipeline and now speaks replies through the selected local engine. No ElevenLabs conversational agent is created. |
+| Microphone | Uses Windows' installed offline recognition language packs in this local build; online Windows dictation is bypassed. Missing recognizers produce a setup message. |
+| Animation | Generated speech is normalized to mono PCM16 WAV and sent through Capri's existing playback and mouth animation code. |
+| Failure behavior | Failed speech leaves the text response visible. The microphone is gated while generating and playing speech to reduce feedback. There is no paid speech fallback. |
+| Settings | Uses `%LOCALAPPDATA%\Capri-Local` so it does not overwrite a normal Capri installation's preferences. Close normal Capri before opening this build; it keeps upstream's single-instance identity. |
+| Updates | Upstream automatic updates are disabled for the local version, preventing replacement by an unmodified ElevenLabs build. |
+| Packaging | Added Windows build scripts and separate, optional CPU Pocket TTS setup/start launchers. |
 
-</details>
+## How it works
 
-## Coming up
+`app/LocalVoice.cs` implements the local synthesis providers and settings dialog. Windows speech is generated directly through `System.Speech.Synthesis`. Pocket speech uses a JSON request to `http://127.0.0.1:8765/v1/audio/speech` and receives a WAV file.
 
-- Working with your files: open, read and edit the ones you pick
-- Controlling YouTube and your apps: skip, fullscreen, click, type and scroll
-- A free voice that runs on your PC
-- Remembering things about you
-- Looking things up and telling you the answer
-- Her own cursor that she moves around your screen
-- Head pats (smh)
-- Mischief mode: screen glitches, stealing your cursor, "you've been hacked" notes
-- Mac and Linux: her voice, the Mainframe and doing things for you
+`local-voice/server.py` adapts the Pocket TTS Python API to that endpoint. It loads the model once, caches the most recently selected voice, serializes model use, converts floating-point samples to PCM16, and returns audio. The server binds only to loopback, accepts preset names or local files, rejects web-browser-originated requests, and makes no ElevenLabs calls. The desktop client refuses HTTP redirects. Initial dependency/model/preset downloads require internet; subsequent inference uses local model files. Other programs running on your machine can access this local server.
 
-## Licence
+`app/Capri.cs` selects the local synthesizer for typed and microphone replies and bypasses the paid agent path. `app/Mainframe.cs` presents the local configuration. `app/Ears.cs` explains offline recognition setup. `LOCAL_BUILD` excludes the Windows online-dictation implementation from the Windows build, avoiding a Windows SDK/WinRT dependency.
 
-Free for anything non-commercial: use her, share her, change her. No selling her or putting her in paid products. Full terms in [LICENSE.md](LICENSE.md) (PolyForm Noncommercial 1.0.0).
+Upstream ElevenLabs classes remain in the source for reference and its old smoke tests; they are not used by the normal local voice flow. The shared `Voice` class still supplies audio encoding, lip-sync analysis, and playback. Cloud chat providers remain optional upstream features: select Ollama or the built-in local chat model if you also want chat inference on your PC.
 
-Have fun and more updates to come!
+## Validation and limitations
 
-<sub>Setup guide based on Dancer's guide in the Discord. Font: Share Tech Mono (OFL).</sub>
+See [LOCAL-VOICE.md](LOCAL-VOICE.md) for the validation record and Windows acceptance checklist. The Python adapter has automated HTTP and audio-conversion tests with mocked model inference. A successful Windows-target compilation does not establish that audio playback, microphone recognition, custom voice quality, or performance work on your particular laptop. The full Windows UI/audio flow needs a Windows machine for final testing.
+
+## Development
+
+```bat
+py -3.12 -m unittest discover -s tests -v
+```
+
+The server's protocol tests need only Python's standard library. Its model-adapter tests additionally need NumPy, which the Pocket TTS setup installs.
+
+Build on Windows with `Build-Local.cmd`. The accompanying source ZIP contains the modified sources and scripts; downloaded models and the Python environment are deliberately excluded. Do not commit personal recordings, API keys, or preferences.
+
+Based on upstream commit `1165ff963e230d55704699894db8becd641f5e63`.

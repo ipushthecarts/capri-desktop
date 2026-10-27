@@ -35,7 +35,7 @@ namespace CapriDesktop
                 if (!first) { Native.AllowSetForegroundWindow(-1); restore.Set(); return 0; }
                 try
                 {
-                    string data = smoke ? Path.GetFullPath(args[1]) : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Capri");
+                    string data = smoke ? Path.GetFullPath(args[1]) : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Capri-Local");
                     using (Companion app = new Companion(data, restore, smoke))
                     {
                         if (smoke) app.StartSmokeTest(data);
@@ -80,6 +80,10 @@ namespace CapriDesktop
         [DataMember] public bool Quiet;
         [DataMember] public bool Wander;
         [DataMember] public bool FreeVoice;
+        [DataMember] public string LocalVoiceProvider;
+        [DataMember] public string LocalWindowsVoice;
+        [DataMember] public string LocalPocketVoice;
+        [DataMember] public int LocalPocketPort;
     }
 
     [DataContract]
@@ -661,7 +665,7 @@ namespace CapriDesktop
                 CheckEars(clock.Elapsed.TotalSeconds);
                 CheckSlow(clock.Elapsed.TotalSeconds);
                 UpdatePill(clock.Elapsed.TotalSeconds);
-                if (!testing && UpdateDue(preferences.UpdateCheckedAt, DateTime.UtcNow.Ticks, clock.Elapsed.TotalSeconds, updateStarted)) CheckForUpdates(false);
+                if (!testing && !UsesLocalVoice && UpdateDue(preferences.UpdateCheckedAt, DateTime.UtcNow.Ticks, clock.Elapsed.TotalSeconds, updateStarted)) CheckForUpdates(false);
             };
             signals.Start();
             Size = CanvasSize(preferences.Size);
@@ -702,7 +706,7 @@ namespace CapriDesktop
                 SavePreferences();
             }
             if (!testing) FindBrain();
-            if (!testing && voice.Key != null) ListVoices(voice.Key, false);
+            if (!UsesLocalVoice && !testing && voice.Key != null) ListVoices(voice.Key, false);
             if (!testing) talkKey = Native.RegisterHotKey(Handle, TalkKeyId, 0x0001 | 0x0002 | 0x4000, 0x56);
             bool muteFree = !testing && Native.RegisterHotKey(Handle, MuteKeyId, 0x0001 | 0x0002 | 0x4000, 0x4E) && Native.UnregisterHotKey(Handle, MuteKeyId);
             mainframe.ShowShortcut(talkKey, muteFree);
@@ -775,6 +779,11 @@ namespace CapriDesktop
 
         private void CheckForUpdates(bool asked)
         {
+            if (UsesLocalVoice)
+            {
+                if (asked) mainframe.UpdateNote("Local voice build: install updates from your modified source.", false);
+                return;
+            }
             if (updating || installing) return;
             updating = true;
             updateStarted = true;
@@ -1150,7 +1159,7 @@ namespace CapriDesktop
         internal string ErrorDetails()
         {
             Cloud remote = brain.Remote;
-            string head = "Capri v" + Assembly.GetExecutingAssembly().GetName().Version.ToString(3) + " | brain: " + (remote != null ? remote.Name + " " + remote.Model : brain.Local != null ? "built-in " + brain.Model : brain.Model != null ? "Ollama " + brain.Model : "none") + " | watch: " + (preferences.Watch ? GlanceGap + " s" : "off") + " | voice: " + (voice.Key != null ? "ElevenLabs" : "none");
+            string head = "Capri v" + Assembly.GetExecutingAssembly().GetName().Version.ToString(3) + " | brain: " + (remote != null ? remote.Name + " " + remote.Model : brain.Local != null ? "built-in " + brain.Model : brain.Model != null ? "Ollama " + brain.Model : "none") + " | watch: " + (preferences.Watch ? GlanceGap + " s" : "off") + " | voice: " + (UsesLocalVoice ? LocalVoiceName : voice.Key != null ? "ElevenLabs" : "none");
             string[] lines = new string[0];
             try { if (Brain.LogPath != null && File.Exists(Brain.LogPath)) lines = File.ReadAllLines(Brain.LogPath); } catch (IOException) { }
             int from = Math.Max(0, lines.Length - 25);
@@ -1386,7 +1395,7 @@ namespace CapriDesktop
         internal void ToggleSpeaking()
         {
             preferences.Quiet = !preferences.Quiet;
-            if (preferences.Quiet) voice.Stop();
+            if (preferences.Quiet) { localVoicePending = false; voice.Stop(); voiceUntil = 0; }
             SavePreferences();
             mainframe.Sync();
         }
@@ -1395,7 +1404,24 @@ namespace CapriDesktop
         internal const string NeedsVoiceKey = "Voice chat needs an ElevenLabs key, choom. Make one with Restrict key turned off, then paste it under VOICE in Capri Mainframe. Type to me for now.";
         internal const string NoVoiceCredits = "Out of ElevenLabs credits, so voice chat is off. Type to me for now, choom.";
 
-        internal bool FreeVoice { get { return preferences.FreeVoice; } }
+        internal bool UsesLocalVoice { get { return !testing; } }
+        internal string LocalVoiceName { get { return LocalVoice.Name(preferences); } }
+        internal void ConfigureLocalVoice()
+        {
+            try
+            {
+                if (!LocalVoice.Configure(mainframe, preferences)) return;
+                StopChat();
+                ++asking;
+                localVoicePending = false;
+                voice.Stop();
+                SavePreferences();
+                ShowVoice();
+            }
+            catch (Exception error) { mainframe.VoiceNote("Local voice settings: " + Voice.Short(error.Message), true); }
+        }
+
+        internal bool FreeVoice { get { return UsesLocalVoice || preferences.FreeVoice; } }
 
         internal void ToggleFreeVoice()
         {
@@ -2053,8 +2079,8 @@ namespace CapriDesktop
 
         internal void TestVoice()
         {
-            if (voice.Key == null && Speak == null) { mainframe.VoiceNote("Paste your ElevenLabs API key first.", true); return; }
-            if (voice.VoiceId == null && Speak == null) { mainframe.VoiceNote("Paste your Voice ID first.", true); return; }
+            if (!UsesLocalVoice && voice.Key == null && Speak == null) { mainframe.VoiceNote("Paste your ElevenLabs API key first.", true); return; }
+            if (!UsesLocalVoice && voice.VoiceId == null && Speak == null) { mainframe.VoiceNote("Paste your Voice ID first.", true); return; }
             if (hidden) SetHidden(false);
             brain.Cancel();
             heard = "voice check";
@@ -2087,6 +2113,7 @@ namespace CapriDesktop
 
         private void ShowVoice(bool note = true)
         {
+            if (UsesLocalVoice) { mainframe.ShowLocalVoice(LocalVoiceName); return; }
             mainframe.ShowVoice(voice.Key == null ? null : Voice.Tail(voice.Key), voice.VoiceId, voice.Model, voices);
             if (!note) return;
             string name = "custom voice";
@@ -2175,6 +2202,7 @@ namespace CapriDesktop
         private void ToggleChat()
         {
             if (chatting) { StopChat(); return; }
+            if (UsesLocalVoice) { StartLocal(); return; }
             if (FreeChatOn && (preferences.FreeVoice || voice.Key == null)) { StartLocal(); return; }
             if (voice.Key == null || voice.VoiceId == null)
             {
@@ -2230,6 +2258,7 @@ namespace CapriDesktop
 
         private void ListenLocally()
         {
+            if (UsesLocalVoice) { ListenOffline(null); return; }
             lock (waking) { utterance = null; quietRun = 0; loudRun = 0; noiseHold = false; preroll.Clear(); }
             Dictation opened;
             try { opened = Dictation.Make(); }
@@ -2250,7 +2279,7 @@ namespace CapriDesktop
             earsReady = true;
             dictation.Hold(ears.Muted);
             CheckEars(clock.Elapsed.TotalSeconds);
-            EarsNote(ears.Muted ? earsLead + "Free voice chat is ready; your mic is muted." : earsLead.Length > 0 ? earsLead + "Free voice chat is on; talk and I'll type back." : "Free voice chat on. Talk and I'll type back.", false);
+            EarsNote(ears.Muted ? earsLead + "Free voice chat is ready; your mic is muted." : earsLead.Length > 0 ? earsLead + "Free voice chat is on; talk and I'll type back." : (UsesLocalVoice ? "Local voice chat on. Talk when you're ready." : "Free voice chat on. Talk and I'll type back."), false);
         }
 
         private void DictationLost(string problem)
@@ -2273,6 +2302,15 @@ namespace CapriDesktop
                 EarsNote(error.Message, true);
                 return;
             }
+            if (UsesLocalVoice)
+            {
+                if (!Hearing.Available) { StopChat(); EarsNote("Install a Windows speech recognition language pack to use the microphone. You can still type to Capri.", true); return; }
+                earsReady = true;
+                CheckEars(clock.Elapsed.TotalSeconds);
+                EarsNote(ears.Muted ? "Local voice chat ready; your mic is muted." : "Local voice chat on. Talk when you're ready.", false);
+                mainframe.VoiceNote(LocalVoiceName + " / offline microphone", false);
+                return;
+            }
             earsReady = true;
             CheckEars(clock.Elapsed.TotalSeconds);
             EarsNote(earsLead + (ears.Muted ? "Free voice chat is ready with offline hearing; your mic is muted. " : "Free voice chat on, but I'm hearing offline, so I'll miss some words. ") + (why == Dictation.PrivacyOff ? "Turn on Online speech recognition in Windows Settings > Privacy & security > Speech." : "The reason is under VOICE in the Mainframe."), false);
@@ -2285,13 +2323,13 @@ namespace CapriDesktop
             CheckEars(clock.Elapsed.TotalSeconds);
             text = Hearing.Clean(text);
             if (earsShut || text.Length == 0) return;
-            mainframe.VoiceNote("Free voice chat on. Talk and I'll type back.", false);
+            mainframe.VoiceNote((UsesLocalVoice ? "Local voice chat on. Talk when you're ready." : "Free voice chat on. Talk and I'll type back."), false);
             Hear(text, text, "> you: ");
         }
 
         private void CheckEars(double now)
         {
-            earsShut = local && (!earsReady || transcribing || ears.Muted || talkState == TalkState.Thinking || now < voiceUntil);
+            earsShut = local && (!earsReady || transcribing || ears.Muted || talkState == TalkState.Thinking || now < voiceUntil || localVoicePending);
             if (!earsShut) return;
             lock (waking) { utterance = null; preroll.Clear(); loudRun = 0; quietRun = 0; }
             pill.SetLevel(0);
@@ -2399,7 +2437,7 @@ namespace CapriDesktop
             if (ticket != chatTicket || !chatting || !local) return;
             transcribing = false;
             CheckEars(clock.Elapsed.TotalSeconds);
-            if (request != asking || ears.Muted) { mainframe.VoiceNote("Free voice chat on. Talk and I'll type back.", false); return; }
+            if (request != asking || ears.Muted) { mainframe.VoiceNote((UsesLocalVoice ? "Local voice chat on. Talk when you're ready." : "Free voice chat on. Talk and I'll type back."), false); return; }
             if (problem != null)
             {
                 Missed("I couldn't hear that. Try again, or check your mic under VOICE.", true);
@@ -2407,7 +2445,7 @@ namespace CapriDesktop
                 return;
             }
             if (string.IsNullOrEmpty(text)) { Missed("I couldn't make out any words. Try again closer to the mic.", false); return; }
-            mainframe.VoiceNote("Free voice chat on. Talk and I'll type back.", false);
+            mainframe.VoiceNote((UsesLocalVoice ? "Local voice chat on. Talk when you're ready." : "Free voice chat on. Talk and I'll type back."), false);
             Hear(text, text, "> you: ");
         }
 
@@ -2588,6 +2626,7 @@ namespace CapriDesktop
         {
             if (!chatting) return;
             bool wasLocal = local;
+            if (UsesLocalVoice) { ++asking; localVoicePending = false; voice.Stop(); voiceUntil = 0; brain.Cancel(); }
             chatting = false;
             local = false;
             earsReady = false;
@@ -2615,7 +2654,7 @@ namespace CapriDesktop
             if (wasLocal)
             {
                 if (asking == earsNotice) CloseTalk();
-                mainframe.VoiceNote("Free voice chat off. Click the wave to listen again.", false);
+                mainframe.VoiceNote(UsesLocalVoice ? "Local voice chat off. Click the wave to listen again." : "Free voice chat off. Click the wave to listen again.", false);
             }
         }
 
@@ -2655,7 +2694,7 @@ namespace CapriDesktop
             if (dictation != null && earsReady) dictation.Hold(ears.Muted);
             pill.SetChat(true, ears.Muted);
             CheckEars(clock.Elapsed.TotalSeconds);
-            if (local && earsReady) mainframe.VoiceNote(ears.Muted ? "Mic muted. Click the mic to unmute." : transcribing ? "Hearing you..." : "Free voice chat on. Talk and I'll type back.", false);
+            if (local && earsReady) mainframe.VoiceNote(ears.Muted ? "Mic muted. Click the mic to unmute." : transcribing ? "Hearing you..." : (UsesLocalVoice ? "Local voice chat on. Talk when you're ready." : "Free voice chat on. Talk and I'll type back."), false);
         }
 
         private void Listen(short[] chunk)
@@ -2757,15 +2796,23 @@ namespace CapriDesktop
             return true;
         }
 
+        private bool localVoicePending;
+
         private void Answer(int ticket, string said, TalkState state, bool quiet = false)
         {
             if (ticket != asking || IsDisposed) return;
+            localVoicePending = false;
             voice.Stop();
             voiceUntil = 0;
-            Func<string, byte[]> speak = preferences.Quiet || local || quiet ? null : Speak;
-            if (speak == null && !local && !quiet && !testing && voice.Ready && !preferences.Quiet) speak = voice.Speak;
+            Func<string, byte[]> speak = null;
+            if (!preferences.Quiet && !quiet)
+            {
+                if (UsesLocalVoice) speak = delegate(string text) { return LocalVoice.Speak(text, preferences); };
+                else if (!local) { speak = Speak; if (speak == null && !testing && voice.Ready) speak = voice.Speak; }
+            }
             string words = Voice.Spoken(said);
             if (speak == null || words.Length == 0 || state == TalkState.Dormant) { Begin(ticket, said, state, null); return; }
+            localVoicePending = UsesLocalVoice;
             reply = null;
             replyDone = -1;
             Say(null);
@@ -2788,6 +2835,8 @@ namespace CapriDesktop
                 Post(delegate
                 {
                     if (ticket != asking || IsDisposed) return;
+                    localVoicePending = false;
+                    if (preferences.Quiet) wav = null;
                     if (problem != null) mainframe.VoiceNote(problem, true);
                     if (reply == null && talkState == TalkState.Thinking) Begin(ticket, said, state, wav);
                     else if (talkState != TalkState.Off && box.Leaving < 0 && reply == said && !preferences.Quiet) PlayReply(said, wav);
@@ -2825,6 +2874,7 @@ namespace CapriDesktop
 
         private void CloseTalk()
         {
+            localVoicePending = false;
             voice.Stop();
             voiceUntil = 0;
             talkState = TalkState.Off;

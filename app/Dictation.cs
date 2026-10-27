@@ -1,8 +1,10 @@
 using System;
 using System.IO;
 using System.Threading;
+#if !LOCAL_BUILD
 using Windows.Foundation;
 using Windows.Media.SpeechRecognition;
+#endif
 
 namespace CapriDesktop
 {
@@ -29,6 +31,16 @@ namespace CapriDesktop
         }
     }
 
+#if LOCAL_BUILD
+    // LOCAL_BUILD uses Hearing's offline recognizer, with no WinRT/cloud dependency.
+    internal sealed class WindowsDictation : Dictation
+    {
+        internal static string Probe() { return "Local build uses offline hearing."; }
+        internal override void Start(Action<string> started) { started(Probe()); }
+        internal override void Hold(bool held) { }
+        public override void Dispose() { }
+    }
+#else
     internal sealed class WindowsDictation : Dictation
     {
         private readonly object gate = new object();
@@ -184,6 +196,8 @@ namespace CapriDesktop
 
         public override void Dispose() { Close(); }
     }
+
+#endif
 
     internal sealed class StandInDictation : Dictation
     {

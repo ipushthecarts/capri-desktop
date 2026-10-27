@@ -345,7 +345,8 @@ namespace CapriDesktop
 
     internal static class Hearing
     {
-        internal const string NoRecognizer = "Windows has no offline speech recognizer for your language. Turn on Online speech recognition in Settings > Privacy & security > Speech.";
+        internal const string NoRecognizer = "Install a Windows speech recognition language pack in Settings > Time & language > Speech. You can still type to Capri.";
+        internal static bool Available { get { return SpeechRecognitionEngine.InstalledRecognizers().Count > 0; } }
         internal static Func<short[], string> Run = Recognize;
         private static readonly object gate = new object();
         private static SpeechRecognitionEngine engine;

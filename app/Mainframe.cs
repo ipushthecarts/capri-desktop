@@ -471,6 +471,25 @@ namespace CapriDesktop
 
         internal void ShowProblem(string problem) { brainNote.Text = problem; }
 
+        internal void ShowLocalVoice(string name)
+        {
+            keyEntry.Visible = voiceEntry.Visible = speechModels.Visible = connect.Visible = keyHelp.Visible = false;
+            freeVoice.Visible = false;
+            shortcut.Visible = shortcutReady;
+            Control settings = Controls["LocalVoiceSettings"];
+            if (settings == null)
+            {
+                Key button = Lower(Make("Configure local voice", 28, 206, 328, 28, delegate { capri.ConfigureLocalVoice(); }));
+                button.Name = "LocalVoiceSettings";
+                settings = button;
+                // Lower controls were already arranged, so use the hidden key row's position.
+                button.Bounds = keyEntry.Bounds;
+                button.Width = connect.Right - keyEntry.Left;
+            }
+            settings.Visible = true;
+            VoiceNote(name + " - no credits or API key", false);
+        }
+
         internal void ShowVoice(string tail, string voiceId, string model, VoiceListing listing)
         {
             keySaved = tail != null;
@@ -505,7 +524,7 @@ namespace CapriDesktop
         internal void ShowShortcut(bool talk, bool mute)
         {
             shortcutReady = talk;
-            shortcut.Visible = keySaved && talk;
+            shortcut.Visible = (capri.UsesLocalVoice || keySaved) && talk;
             muteShortcut.Visible = mute;
         }
 
