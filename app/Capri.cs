@@ -1510,7 +1510,7 @@ namespace CapriDesktop
             heyCapri = new WakeWord(data);
             presence = new Presence(Assembly.GetExecutingAssembly().GetName().Version.ToString(3));
             preferences = smoke ? new Preferences() : LoadPreferences();
-            if (!smoke && MigrateLocal(preferences)) SavePreferences();
+            bool localForkMoved = !smoke && MigrateLocal(preferences);
             qwen.CpuOnly = preferences.HdCpu;
             bool careNew = !preferences.CareWritten;
             careLines = new CareLines(Path.Combine(data, "check-ins.md"));
@@ -1686,11 +1686,11 @@ namespace CapriDesktop
             Computer.Grab = HandsGrab;
             Computer.Halted = brain.StopDriving;
             string textKey = Voice.Unprotect(preferences.TextKey);
+            bool textKeyMoved = !preferences.NvidiaGlm;
             if (!preferences.NvidiaGlm)
             {
                 if (textKey != null && Cloud.KindOf(textKey) == "nvidia") preferences.TextModel = Brain.NvidiaDefault;
                 preferences.NvidiaGlm = true;
-                if (!testing) SavePreferences();
             }
             SplitKeys();
             brain.Remote = TierCloud();
@@ -1769,6 +1769,7 @@ namespace CapriDesktop
             if (!smoke && careNew && preferences.CareWritten) SavePreferences();
             anchor = KeepOnScreen(anchor);
             Location = anchor;
+            if (!smoke && (localForkMoved || textKeyMoved)) SavePreferences();
             Microsoft.Win32.SystemEvents.DisplaySettingsChanged += DisplaysChanged;
         }
 
