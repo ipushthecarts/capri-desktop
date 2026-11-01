@@ -26098,7 +26098,7 @@ namespace CapriDesktop
                             string vsPanelUsual = "Fish Audio · cloud | " + VoiceServer.FishCloud + " | " + VoiceServer.FishFree + " |  | Paste your Fish Audio key | - | ";
                             string vsCloudOnly = "CLOUD VOICE > | Fish Audio · cloud, OpenAI · cloud";
                             if (vsMenu.IndexOf(VoiceServer.Menu, StringComparison.Ordinal) >= 0 || !vsMenu.StartsWith("Her own (picked), Bright, Sly, Sharp, -, HD ", StringComparison.Ordinal) || vsOpened != vsPanelUsual
-                                || vsCloudFields != "no address | Model | Voice | Key | -" || vsCloudChoices != vsCloudOnly || vsCustomChoices != "CUSTOM LOCAL > | Voice model file · on your PC, Fish Speech · on your PC, Kokoro · on your PC, Any OpenAI-style server"
+                                || vsCloudFields != "no address | Model | Voice | Key | -" || vsCloudChoices != vsCloudOnly || vsCustomChoices != "CUSTOM LOCAL > | Voice model file · on your PC, Fish Speech · on your PC, Kokoro · on your PC, System voice · on your PC, Pocket TTS · on your PC, Any OpenAI-style server"
                                 || vsCloudSwitch != "OpenAI · cloud | " + VoiceServer.OpenAiCloud + " | gpt-4o-mini-tts | marin | Paste your OpenAI key | - | Key cleared: paste the key for OpenAI · cloud."
                                 || vsKokoro != "Kokoro · on your PC | " + VoiceServer.Address + " | kokoro | af_heart | Optional | - |  / Address | Model | Voice | Key | -"
                                 || vsFileShown != "Voice model file · on your PC |  |  |  | Optional | - |  / Model folder | Language | Speaker or clip | no key | Browse..."
