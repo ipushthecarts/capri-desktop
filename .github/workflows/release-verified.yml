@@ -1,0 +1,97 @@
+name: Publish verified 0.7.8 installers
+on:
+  push:
+    branches: [release-0.7.8-installers]
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_SHA: ee83451ff6029fa36cade52e9645fff142126bd7
+      MAC_SHA: 5360929dc5f6de641f19357a7bc8c7bb4b8b14a2
+      PACKAGE_RUN: '41340270871'
+      MAC_RUN: '41338548482'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ee83451ff6029fa36cade52e9645fff142126bd7
+          fetch-depth: 0
+      - name: Verify the Mac build inputs are unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(gh api repos/$GITHUB_REPOSITORY/actions/runs/$MAC_RUN --jq .head_sha)" = "$MAC_SHA"
+          for arch in arm64 x64; do
+            test "$(gh api repos/$GITHUB_REPOSITORY/actions/runs/$MAC_RUN/jobs --jq '.jobs[] | select(.name == "mac ('"$arch"')") | .conclusion')" = success
+          done
+          git diff --exit-code "$MAC_SHA" "$SOURCE_SHA" -- cross assets local-voice packaging README.md PACKAGES.md LOCAL-VOICE.md LICENSE.md Setup-PocketVoice.sh Start-PocketVoice.sh app/Brain.cs app/Engine.cs app/Hands.cs app/Presence.cs app/Voice.cs app/SystemVoice.cs app/VoicePack.cs
+          echo 'PASS Mac source, shared code, resources, packaging and documentation exactly match the newly built and tested Mac installers.'
+      - name: Wait for the final Windows tests and packaging
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(gh api repos/$GITHUB_REPOSITORY/actions/runs/$PACKAGE_RUN --jq .head_sha)" = "$SOURCE_SHA"
+          for attempt in $(seq 1 80); do
+            job=$(gh api repos/$GITHUB_REPOSITORY/actions/runs/$PACKAGE_RUN/jobs --jq '.jobs[] | select(.name == "windows")')
+            state=$(jq -r .status <<< "$job")
+            if [ "$state" = completed ]; then
+              test "$(jq -r .conclusion <<< "$job")" = success
+              break
+            fi
+            echo "Windows job: $state"
+            sleep 10
+          done
+          test "$(gh api repos/$GITHUB_REPOSITORY/actions/runs/$PACKAGE_RUN/jobs --jq '.jobs[] | select(.name == "windows") | .conclusion')" = success
+          test "$(gh api repos/$GITHUB_REPOSITORY/actions/runs/$PACKAGE_RUN/jobs --jq '.jobs[] | select(.name == "linux") | .conclusion')" = success
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-windows
+          run-id: 41340270871
+          github-token: ${{ github.token }}
+          path: release
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-linux
+          run-id: 41340270871
+          github-token: ${{ github.token }}
+          path: release
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-mac-arm64
+          run-id: 41338548482
+          github-token: ${{ github.token }}
+          path: release
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-mac-x64
+          run-id: 41338548482
+          github-token: ${{ github.token }}
+          path: release
+      - name: Verify the complete installer set and publish
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd release
+          for file in Capri-Local.exe Capri-Local-Setup.exe Capri-Local-Windows.zip capri-local_0.7.8+local.1_amd64.deb capri-local-0.7.8.local.1-1-x86_64.pkg.tar.zst Capri-Local-linux-x64.tar.gz Capri-Local-mac-arm64.dmg Capri-Local-mac-arm64.zip Capri-Local-mac-x64.dmg Capri-Local-mac-x64.zip; do
+            test -s "$file"
+          done
+          test "$(find . -maxdepth 1 -type f | wc -l)" -eq 10
+          sha256sum * > SHA256SUMS.txt
+          sha256sum --check SHA256SUMS.txt
+          tag=v0.7.8-local.1
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$tag" ./* --repo "$GITHUB_REPOSITORY" --clobber
+            gh release edit "$tag" --repo "$GITHUB_REPOSITORY" --draft=false --prerelease=false --latest --title 'Capri Local 0.7.8 - Windows, Linux and macOS' --notes-file ../packaging/RELEASE-NOTES.md
+          else
+            gh release create "$tag" ./* --repo "$GITHUB_REPOSITORY" --target "$SOURCE_SHA" --latest --title 'Capri Local 0.7.8 - Windows, Linux and macOS' --notes-file ../packaging/RELEASE-NOTES.md
+          fi
+          gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json url,isDraft,isPrerelease,assets
+      - name: Stop the redundant Mac queue after publishing
+        shell: bash
+        run: |
+          gh api --method POST repos/$GITHUB_REPOSITORY/actions/runs/$PACKAGE_RUN/cancel || true
