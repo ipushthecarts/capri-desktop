@@ -194,7 +194,7 @@ namespace CapriDesktop
         internal const string HelpPage = "https://lachydotmcg.github.io/capri-desktop/help/";
         // Mac and Linux don't update themselves yet, so she checks GitHub's latest release now and then and offers its page.
         private const string LatestRelease = "https://api.github.com/repos/ipushthecarts/capri-desktop/releases/latest";
-        private const string ReleasesPage = "https://github.com/lachydotmcg/capri-desktop/releases/latest";
+        private const string ReleasesPage = "https://github.com/ipushthecarts/capri-desktop/releases/latest";
         internal static readonly double[] Sizes = { 140, 170, 240, 320, 440, 560 };
         private static readonly string[] SizeNames = { "Tiny", "Small", "Medium", "Large", "Huge", "Giant" };
         internal readonly Brain Brain = new Brain();
@@ -875,7 +875,7 @@ namespace CapriDesktop
             string version = found == null || found.Draft || found.Prerelease ? null : Newer(found.Tag, System.Reflection.Assembly.GetExecutingAssembly().GetName().Version);
             if (ContextMenu == null) return;
             if (version == null) { if (updateItem != null) ContextMenu.Items.Remove(updateItem); return; }
-            updatePage = found.Page != null && found.Page.StartsWith("https://github.com/lachydotmcg/capri-desktop/releases/", StringComparison.Ordinal) ? found.Page : ReleasesPage;
+            updatePage = found.Page != null && found.Page.StartsWith("https://github.com/ipushthecarts/capri-desktop/releases/", StringComparison.Ordinal) ? found.Page : ReleasesPage;
             if (updateItem == null)
             {
                 updateItem = new MenuItem();
@@ -897,6 +897,14 @@ namespace CapriDesktop
         // The release's version when it's newer than hers, like "0.7.6". Null for older, odd or missing tags.
         internal static string Newer(string tag, Version mine)
         {
+            System.Text.RegularExpressions.Match local = System.Text.RegularExpressions.Regex.Match(tag ?? "", @"^[vV]?(\d+\.\d+\.\d+)-local\.(\d+)$");
+            if (local.Success)
+            {
+                Version release;
+                if (!Version.TryParse(local.Groups[1].Value + "." + local.Groups[2].Value, out release)) return null;
+                Version current = new Version(mine.Major, mine.Minor, Math.Max(0, mine.Build), Math.Max(0, mine.Revision));
+                return release > current ? local.Groups[1].Value + "-local." + local.Groups[2].Value : null;
+            }
             Version found;
             if (tag == null || !System.Text.RegularExpressions.Regex.IsMatch(tag, @"^[vV]?\d+\.\d+(\.\d+)?$") || !Version.TryParse(tag.TrimStart('v', 'V'), out found)) return null;
             found = new Version(found.Major, found.Minor, Math.Max(0, found.Build));
