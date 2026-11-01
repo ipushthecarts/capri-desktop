@@ -2570,6 +2570,8 @@ namespace CapriDesktop
         {
             using (LayersSheet drawn = new LayersSheet(this, zoom))
             {
+                drawn.MaximumSize = new Size(4096, 4096);
+                drawn.ClientSize = new Size(Px((int)Math.Round(LayersSheet.Wide * zoom)), Px((int)Math.Round(LayersSheet.Tall * zoom)));
                 drawn.Show(this);
                 string crowded = drawn.Crowded(), size = " (" + drawn.ClientSize.Width + " x " + drawn.ClientSize.Height + " at " + zoom + ")";
                 if (picture != null) drawn.Picture(picture);
