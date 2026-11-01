@@ -1,6 +1,7 @@
 param([string]$OutputDirectory, [switch]$SmokeTest, [int]$SmokeSeconds = 60)
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
+if ($SmokeTest -and $env:GITHUB_ACTIONS -eq 'true') { & (Join-Path $PSScriptRoot 'set-test-display.ps1') }
 $framework = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319'
 $compiler = Join-Path $framework 'csc.exe'
 $wpf = Join-Path $framework 'WPF'

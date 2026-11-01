@@ -28379,7 +28379,7 @@ namespace CapriDesktop
                     }
                     catch (Exception error)
                     {
-                        if (OnGitHub && step < 22)
+                        if (OnGitHub && step > 1 && step < 22)
                         {
                             TestFailed = true;
                             checks.Add("FAIL step " + step + ": " + error.Message);

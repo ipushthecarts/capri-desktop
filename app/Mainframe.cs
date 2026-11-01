@@ -1967,7 +1967,7 @@ namespace CapriDesktop
             {
                 Control control = entry.Key;
                 if (Folded(control) || !control.Visible || (control is Label && control.Text.Length == 0)) continue;
-                if (!page.Contains(control.Bounds)) return control.Text.Length > 0 ? control.Text : control.AccessibleName;
+                if (!page.Contains(control.Bounds)) return (control.Text.Length > 0 ? control.Text : control.AccessibleName) + " " + control.Bounds + " in " + page;
             }
             return null;
         }
