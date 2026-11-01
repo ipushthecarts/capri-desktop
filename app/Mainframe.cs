@@ -2608,6 +2608,10 @@ namespace CapriDesktop
         {
             using (SecuritySheet drawn = new SecuritySheet(this, zoom))
             {
+                // A simulated 200% layout can exceed a CI runner's 1024px desktop.
+                // Keep the complete test surface instead of Windows' default track-size clamp.
+                drawn.MaximumSize = new Size(4096, 4096);
+                drawn.ClientSize = new Size(Px((int)Math.Round(SecuritySheet.Wide * zoom)), Px((int)Math.Round(SecuritySheet.Tall * zoom)));
                 drawn.Show(this);
                 string crowded = drawn.Crowded(), size = " (" + drawn.ClientSize.Width + " x " + drawn.ClientSize.Height + " at " + zoom + ")";
                 if (picture != null) drawn.Picture(picture);
