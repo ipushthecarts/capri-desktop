@@ -8,9 +8,9 @@ These builds use local speech without ElevenLabs credits. Pocket TTS is optional
 
 | System | Download | Installation |
 | --- | --- | --- |
-| Windows 10/11, x64 | `Capri-Local.exe` or `Capri-Local-Windows.zip` | Open the EXE; use the ZIP for the optional Pocket setup scripts. Requires .NET Framework 4.8. |
-| Debian/Ubuntu, x64 | `capri-local_0.6.2+local.1_amd64.deb` | `sudo apt install ./capri-local_0.6.2+local.1_amd64.deb` |
-| Arch, x64 | `capri-local-0.6.2.local.1-1-x86_64.pkg.tar.zst` | `sudo pacman -U ./capri-local-0.6.2.local.1-1-x86_64.pkg.tar.zst` |
+| Windows 10/11, x64 | `Capri-Local-Setup.exe`, `Capri-Local.exe`, or `Capri-Local-Windows.zip` | Run the setup EXE to install, or run the standalone EXE. Use the ZIP for optional Pocket setup scripts. Requires .NET Framework 4.8. |
+| Debian/Ubuntu, x64 | `capri-local_0.7.8+local.1_amd64.deb` | `sudo apt install ./capri-local_0.7.8+local.1_amd64.deb` |
+| Arch, x64 | `capri-local-0.7.8.local.1-1-x86_64.pkg.tar.zst` | `sudo pacman -U ./capri-local-0.7.8.local.1-1-x86_64.pkg.tar.zst` |
 | Other Linux, x64 | `Capri-Local-linux-x64.tar.gz` | Extract, then run `bash capri-local/install.sh`, or run `capri-local/Capri` directly. |
 | Mac, Apple Silicon | `Capri-Local-mac-arm64.dmg` | Open the disk image and drag Capri Local into Applications. |
 | Mac, Intel | `Capri-Local-mac-x64.dmg` | Open the disk image and drag Capri Local into Applications. |
@@ -19,8 +19,8 @@ Linux and Mac packages bundle the .NET runtime. Mac builds require macOS 15 or n
 
 ## Local speech
 
-- Windows: select **Configure local voice** in the Mainframe. Installed Windows voices work immediately.
-- Linux: open **Local voice settings** in the tray/right-click menu, or click the wave button. The system voice uses `espeak-ng`, installed by the Debian/Arch packages.
+- Windows: open **VOICE > CUSTOM LOCAL > Set up** in the Mainframe. Installed Windows voices work immediately.
+- Linux: open **Settings > Voice** in the tray/right-click menu, or click the wave button. The system voice uses `espeak-ng`, installed by the Debian/Arch packages.
 - Mac: use the same local voice settings. The system voice uses macOS `say`.
 - All three: select Pocket TTS for reference-based custom voices. Use a preset such as `alba`, or supply the full local path to a reference sample.
 

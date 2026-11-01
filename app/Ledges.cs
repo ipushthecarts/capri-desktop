@@ -35,15 +35,39 @@ namespace CapriDesktop
         [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern IntPtr FindWindowEx(IntPtr parent, IntPtr after, string type, string title);
         [DllImport("dwmapi.dll")] private static extern int DwmGetWindowAttribute(IntPtr window, int attribute, out Box value, int size);
         [DllImport("dwmapi.dll")] private static extern int DwmGetWindowAttribute(IntPtr window, int attribute, out int value, int size);
+        // Outside her tests the list of windows is kept for a second, because a few things a second ask for it.
+        internal static bool Enabled;
+        private static int scannedAt;
+        private static List<Shown> windows;
+        private static readonly object windowLock = new object();
+
+        internal static void Invalidate() { lock (windowLock) windows = null; }
 
         private static readonly string[] Shell = { "Progman", "WorkerW", "Shell_TrayWnd", "Shell_SecondaryTrayWnd", "#32768", "tooltips_class32" };
         private const int IconInset = 2;
+        // Her mini player is a layered tool window like her bubbles, which the checks below pass over, yet she sits on it like a
+        // window. Its plate, without the glow around it, is the edge.
+        private static readonly object ownLock = new object();
+        private static IntPtr ownSeat;
+        private static Rectangle ownPlate;
+
+        internal static void OwnSeat(IntPtr window, Rectangle plate) { lock (ownLock) { ownSeat = window; ownPlate = plate; } }
+
+        private static bool Own(IntPtr window, out Rectangle plate)
+        {
+            lock (ownLock)
+            {
+                plate = ownPlate;
+                return window != IntPtr.Zero && window == ownSeat && plate.Width > 0 && plate.Height > 0;
+            }
+        }
 
         private sealed class Shown
         {
             internal IntPtr Window;
             internal Rectangle Bounds;
             internal bool Seat;
+            internal bool Solid;
         }
 
         private static string Kind(IntPtr window)
@@ -57,6 +81,8 @@ namespace CapriDesktop
         {
             bounds = Rectangle.Empty;
             if (!IsWindow(window) || !IsWindowVisible(window) || IsIconic(window)) return false;
+            Rectangle own;
+            if (Own(window, out own)) { bounds = own; return true; }
             int cloaked;
             if (DwmGetWindowAttribute(window, 14, out cloaked, 4) == 0 && cloaked != 0) return false;
             int extended = Native.GetWindowLong(window, -20);
@@ -81,6 +107,8 @@ namespace CapriDesktop
 
         internal static bool Seatable(IntPtr window, Rectangle bounds)
         {
+            Rectangle own;
+            if (Own(window, out own)) return true;
             int extended = Native.GetWindowLong(window, -20);
             if ((extended & 0x80) != 0 && (extended & 0x40000) == 0) return false;
             if (IsZoomed(window) || bounds.Width < 120 || bounds.Height < 60) return false;
@@ -89,16 +117,25 @@ namespace CapriDesktop
 
         private static List<Shown> Windows(ICollection<IntPtr> skip)
         {
-            List<Shown> found = new List<Shown>();
-            Visit visit = delegate(IntPtr window, IntPtr data)
+            lock (windowLock)
             {
-                Rectangle bounds;
-                if (!skip.Contains(window) && Showing(window, out bounds)) found.Add(new Shown { Window = window, Bounds = bounds, Seat = Seatable(window, bounds) });
-                return true;
-            };
-            EnumWindows(visit, IntPtr.Zero);
-            GC.KeepAlive(visit);
-            return found;
+                int now = Environment.TickCount;
+                if (!Enabled || windows == null || unchecked((uint)(now - scannedAt)) >= 1000)
+                {
+                    List<Shown> found = new List<Shown>();
+                    Visit visit = delegate(IntPtr window, IntPtr data)
+                    {
+                        Rectangle bounds;
+                        if (Showing(window, out bounds)) found.Add(new Shown { Window = window, Bounds = bounds, Seat = Seatable(window, bounds), Solid = Solid(window, bounds) });
+                        return true;
+                    };
+                    EnumWindows(visit, IntPtr.Zero);
+                    GC.KeepAlive(visit);
+                    windows = found;
+                    scannedAt = now;
+                }
+                return windows.FindAll(shown => !skip.Contains(shown.Window));
+            }
         }
 
         internal static List<int[]> Open(int left, int right, int y, IEnumerable<Rectangle> above)
@@ -119,7 +156,7 @@ namespace CapriDesktop
             return spans;
         }
 
-        internal static List<Ledge> Find(ICollection<IntPtr> skip, IEnumerable<Rectangle> icons)
+        internal static List<Ledge> Find(ICollection<IntPtr> skip, IEnumerable<Rectangle> icons, IntPtr under = default(IntPtr))
         {
             List<Ledge> found = new List<Ledge>();
             List<Rectangle> above = new List<Rectangle>();
@@ -128,7 +165,7 @@ namespace CapriDesktop
                 if (window.Seat)
                     foreach (int[] span in Open(window.Bounds.Left, window.Bounds.Right, window.Bounds.Top, above))
                         found.Add(new Ledge { Window = window.Window, Bounds = window.Bounds, Left = span[0], Right = span[1], Y = window.Bounds.Top });
-                above.Add(window.Bounds);
+                if (window.Window != under) above.Add(window.Bounds);
             }
             foreach (Rectangle icon in icons)
                 foreach (int[] span in Open(icon.Left, icon.Right, icon.Top + IconInset, above))
@@ -154,17 +191,13 @@ namespace CapriDesktop
 
         internal static bool Covered(Ledge seat, int x, ICollection<IntPtr> skip)
         {
-            bool covered = false;
-            Visit visit = delegate(IntPtr window, IntPtr data)
+            foreach (Shown window in Windows(new IntPtr[0]))
             {
-                if (window == seat.Window) return false;
-                Rectangle bounds;
-                if (!skip.Contains(window) && Showing(window, out bounds) && Solid(window, bounds) && x >= bounds.Left && x < bounds.Right && seat.Y >= bounds.Top && seat.Y < bounds.Bottom) { covered = true; return false; }
-                return true;
-            };
-            EnumWindows(visit, IntPtr.Zero);
-            GC.KeepAlive(visit);
-            return covered;
+                if (window.Window == seat.Window) return false;
+                Rectangle bounds = window.Bounds;
+                if (!skip.Contains(window.Window) && window.Solid && x >= bounds.Left && x < bounds.Right && seat.Y >= bounds.Top && seat.Y < bounds.Bottom) return true;
+            }
+            return false;
         }
 
         private static IntPtr DesktopList()

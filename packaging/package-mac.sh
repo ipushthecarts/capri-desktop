@@ -4,7 +4,7 @@ arch="${1:?Pass arm64 or x64}"
 app="$PWD/stage/mac-$arch/Capri Local.app"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources" release
 cp -a "out/osx-$arch/." "$app/Contents/MacOS/"
-sed 's/@VERSION@/0.6.2.1/g' cross/mac/Info.plist > "$app/Contents/Info.plist"
+sed 's/@VERSION@/0.7.8.1/g' cross/mac/Info.plist > "$app/Contents/Info.plist"
 mkdir -p stage/Capri.iconset
 for s in 16 32 128 256 512; do
   sips -z "$s" "$s" cross/icon.png --out "stage/Capri.iconset/icon_${s}x${s}.png" >/dev/null

@@ -1,9 +1,11 @@
-.voice-venv/
-__pycache__/
-dist/
-*.pyc
 out/
-stage/
-release/
 cross/bin/
 cross/obj/
+node_modules/
+
+.voice-venv/
+__pycache__/
+*.pyc
+dist/
+stage/
+release/

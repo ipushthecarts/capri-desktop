@@ -1,55 +1,33 @@
-# Local voice notes
+# Local voice integration notes
 
-Main repository: https://github.com/lachydotmcg/capri-desktop
+This build is based on upstream Capri v0.7.8 plus the local fork changes described in README.md and UPSTREAM.md.
 
-## Getting started
+## Existing settings
 
-If this folder contains `Capri-Local.exe`, close the original Capri app and open `Capri-Local.exe`. Set up the chat model, then press **Test** under **VOICE**. Windows speech works without Python or a speech API key.
+Windows keeps `%LOCALAPPDATA%\Capri-Local\settings.json`. Mac/Linux keep the existing `Capri-Local/cross.json` under the OS application-data folder. Old files are read in place; nothing is deleted for this migration.
 
-For a custom voice, install Python 3.12, run `Setup-PocketVoice.cmd` once, and run `Start-PocketVoice.cmd`. In Capri, open **Configure local voice**, select Pocket TTS, choose `alba` or browse to your reference audio, save, and test. Keep the server console open. The first request downloads model files; if the desktop times out while downloads continue, wait for them to finish and test again.
+On the first upgraded launch, the previous system/Pocket choice is mapped to the new provider fields. A Pocket reference path, custom port and muted state are retained. A migration marker prevents a later launch from undoing newly selected settings. Records that already have a current custom server/provider are preserved.
 
-Reference audio is not the full voice model. The server needs its downloaded Pocket TTS weights as well. Model weights, Python dependencies, and personal recordings are not bundled in this download.
+Windows uses the current custom-local row and voice pipeline. Mac/Linux use the provider interface. Upstream prebuilt local, custom model/server, HD, voice style/layers and optional cloud choices remain available. Cloud voices remain optional and can use their providers' credits; the default system voice does not.
 
-The wave button listens through an installed Windows offline speech recognizer and sends recognized words through Capri's normal chat flow. Install your speech language pack in Windows Settings if prompted. You can always type instead. Keep **Speak replies** checked to hear replies.
+## Validation
 
-## Validation record
+The install-packages workflow builds the new Windows app and setup executable, self-contained Linux app, and Intel/Apple Silicon Mac apps. The release requires all platform jobs to succeed before publishing.
 
-Prepared October 27, 2026, from upstream commit `1165ff963e230d55704699894db8becd641f5e63`.
+Checks include upstream desktop smoke tests, Windows installer-payload verification, legacy voice settings migration, the ten bundled Pocket-adapter tests, native OS voice synthesis into WAV without speaker playback, and Debian/Arch package installation. See the actual release workflow results for the completed checks.
 
-- Windows x64 application compiled successfully against .NET Framework 4.8 reference assemblies with C# 5 compatibility.
-- Ten Python tests passed: HTTP request validation, loopback/browser restrictions, local reference paths, WAV responses, inference errors, concurrency rejection, cached model/voice state, and float-to-PCM conversion. Model inference was mocked for these tests.
-- Twelve C# transport/audio checks passed using the actual local request code and shared WAV helpers, including successful loopback speech requests, escaped Windows paths, malformed and empty WAV rejection, and server failure handling.
-- `git diff --check` passed.
+These checks do not establish live speaker/microphone behavior, GPU/HD model compatibility, Pocket model quality, game support on every system, or latency on an X1 Gen 9. Model/dependency downloads need internet before subsequent local inference. Windows binaries are unsigned and Mac apps are ad-hoc signed, not Apple-notarized.
 
-Not verified here: launching the Windows desktop UI, installed Windows voice synthesis/playback, microphone recognition, live Pocket TTS model downloads/inference, reference-voice quality, CPU usage, battery impact, or latency on an X1 Gen 9. The included Windows executable is a compiled preview, not a signed installer or a release tested on the target laptop. It requires 64-bit Windows and .NET Framework 4.8.
+## Manual checks after installing
 
-## Windows acceptance checklist
+1. Confirm the version is 0.7.8 and old position/model/voice settings remain.
+2. Test the system voice without a speech API key.
+3. Start the Pocket service and test a preset and an existing local reference file.
+4. Toggle speech off and on, including during a pending reply.
+5. Stop the local service and confirm text replies remain available with an explanatory voice error.
+6. Test Windows microphone chat, mute and hotkeys with the installed recognition model.
+7. Check current voice effects, model selection and desktop behavior on the target system.
 
-1. Open the app and confirm that VOICE shows **Configure local voice**, with no ElevenLabs key field.
-2. Select a Windows voice, save, and press Test. Confirm audible speech and mouth animation.
-3. Type a question and confirm the same engine speaks the reply.
-4. Turn Speak replies off and confirm replies stay silent, including a speech request already in progress.
-5. Start the Pocket server, select `alba`, and test after the initial download finishes.
-6. Choose a local reference file, test, then restart Capri and check that the choice persists.
-7. Stop the Pocket server and ask another question. Confirm that text still appears and VOICE explains the failure.
-8. Use the wave button. Confirm microphone recognition, mute/unmute, and that Capri does not respond to her own voice. Offline recognition is less capable than modern neural transcription.
-9. Stop voice chat while a reply is pending and confirm that late audio does not play.
-10. Check the update button. This build should keep the local voice modification rather than install an upstream update.
+Original source and credit: https://github.com/lachydotmcg/capri-desktop
 
-The Python launcher is optional. If a Pocket download requires authentication or license acceptance, follow the message in its console; there is no ElevenLabs credential involved. Keep a clean reference recording and choose a voice whose use you have permission for.
-
-## Development checks
-
-Python:
-
-```bat
-py -3.12 -m unittest discover -s tests -v
-```
-
-Windows C# transport tests:
-
-```powershell
-.\Test-Local.ps1
-```
-
-The fork includes a Windows GitHub Actions workflow to build and run these checks after it is pushed. It has not been run on GitHub in this session. The original upstream smoke test includes legacy paid-voice expectations and is not the local build's acceptance suite.
+Fork releases: https://github.com/ipushthecarts/capri-desktop/releases

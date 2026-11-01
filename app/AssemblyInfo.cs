@@ -3,7 +3,9 @@ using System.Runtime.InteropServices;
 
 [assembly: AssemblyTitle("Capri")]
 [assembly: AssemblyDescription("An unofficial, silent desktop companion")]
+[assembly: AssemblyCompany("Capri fan project")]
 [assembly: AssemblyProduct("Capri")]
-[assembly: AssemblyVersion("0.6.2.0")]
-[assembly: AssemblyFileVersion("0.6.2.0")]
+[assembly: AssemblyCopyright("Copyright 2026 Lachy")]
+[assembly: AssemblyVersion("0.7.8.1")]
+[assembly: AssemblyFileVersion("0.7.8.1")]
 [assembly: ComVisible(false)]

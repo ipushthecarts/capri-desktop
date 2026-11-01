@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 # Invoke from the repository root after dotnet publish has produced out/linux.
-version="${1:-0.6.2+local.1}"
+version="${1:-0.7.8+local.1}"
 arch_version="${version/+/\.}"
 root="$PWD/stage/linux"
 mkdir -p "$root/opt/capri-local" "$root/usr/bin" "$root/usr/share/applications" "$root/usr/share/icons/hicolor/256x256/apps" "$root/usr/share/licenses/capri-local" release

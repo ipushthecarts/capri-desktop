@@ -20,6 +20,18 @@ namespace CapriDesktop
         [STAThread]
         private static int Main(string[] args)
         {
+            if (args.Length == 2 && args[0] == "--system-voice-test")
+            {
+                try
+                {
+                    byte[] sound = SystemVoice.Speak("Local voice synthesis check.", null);
+                    int rate;
+                    if (Voice.Samples(sound, out rate).Length == 0) return 1;
+                    File.WriteAllBytes(args[1], sound);
+                    return 0;
+                }
+                catch (Exception error) { File.WriteAllText(args[1] + ".error.txt", error.ToString()); return 1; }
+            }
             if (args.Length >= 5 && args[0] == "--shelf")
             {
                 Shelf = new[] { int.Parse(args[1]), int.Parse(args[2]), int.Parse(args[3]), int.Parse(args[4]) };
@@ -46,15 +58,24 @@ namespace CapriDesktop
                 Pet pet = new Pet(desktop);
                 NativeMenu menu = new NativeMenu();
                 NativeMenuItem talk = new NativeMenuItem("Talk to her");
-                talk.Click += delegate { pet.Talk.Open(); };
+                talk.Click += delegate { pet.ComeBack(); pet.Talk.Open(); };
+                NativeMenuItem quiet = new NativeMenuItem("Quiet") { ToggleType = NativeMenuItemToggleType.CheckBox };
+                quiet.Click += delegate { pet.ToggleShush(); };
+                pet.ShushChanged = delegate { quiet.IsChecked = pet.Shushed; };
+                NativeMenuItem hide = new NativeMenuItem("Hide her");
+                hide.Click += delegate
+                {
+                    if (pet.Away) pet.ComeBack();
+                    else pet.HideAway();
+                };
+                pet.AwayChanged = delegate { hide.Header = pet.Away ? "Show her" : "Hide her"; };
                 NativeMenuItem bring = new NativeMenuItem("Bring her back");
                 bring.Click += delegate { pet.Bring(); };
                 NativeMenuItem quit = new NativeMenuItem("Quit Capri");
                 quit.Click += delegate { pet.Quit(); };
                 menu.Items.Add(talk);
-                NativeMenuItem voice = new NativeMenuItem("Local voice settings");
-                voice.Click += delegate { pet.NoVoice(); };
-                menu.Items.Add(voice);
+                menu.Items.Add(quiet);
+                menu.Items.Add(hide);
                 menu.Items.Add(bring);
                 menu.Items.Add(new NativeMenuItemSeparator());
                 menu.Items.Add(quit);

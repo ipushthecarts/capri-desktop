@@ -1,10 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Text.RegularExpressions;
 using System.Threading;
-#if !LOCAL_BUILD
 using Windows.Foundation;
 using Windows.Media.SpeechRecognition;
-#endif
 
 namespace CapriDesktop
 {
@@ -14,12 +14,27 @@ namespace CapriDesktop
         internal const string MicBlocked = "Windows is blocking the mic. Turn on Let desktop apps access your microphone in Settings > Privacy & security > Microphone.";
         internal const string NoMic = "Windows can't find a mic. Plug one in, or pick one in Settings > System > Sound.";
         internal static Func<Dictation> Make = delegate { return new WindowsDictation(); };
+        internal static Func<string> DefaultMic = delegate
+        {
+            try { return Windows.Media.Devices.MediaDevice.GetDefaultAudioCaptureId(Windows.Media.Devices.AudioDeviceRole.Default); }
+            catch (Exception) { return null; }
+        };
         internal Action<string> Heard;
+        // What it thinks they've said so far, while they're still saying it.
+        internal Action<string> Partial;
         internal Action<string> Lost;
+        // The language picked in Settings, English included, or null to listen in Windows' own speech language.
+        internal string Language;
 
         internal abstract void Start(Action<string> started);
         internal abstract void Hold(bool held);
         public abstract void Dispose();
+
+        internal static string OtherMic(string chosen, string name, string defaultId)
+        {
+            if (string.IsNullOrEmpty(chosen) || string.IsNullOrEmpty(name) || string.IsNullOrEmpty(defaultId) || defaultId.IndexOf(chosen, StringComparison.OrdinalIgnoreCase) >= 0) return null;
+            return "Windows speech only hears your default mic, not " + name + ". Make " + name + " the default in Windows Settings > System > Sound > Input, or pick Mic: default here.";
+        }
 
         internal static string Explain(Exception error)
         {
@@ -31,16 +46,6 @@ namespace CapriDesktop
         }
     }
 
-#if LOCAL_BUILD
-    // LOCAL_BUILD uses Hearing's offline recognizer, with no WinRT/cloud dependency.
-    internal sealed class WindowsDictation : Dictation
-    {
-        internal static string Probe() { return "Local build uses offline hearing."; }
-        internal override void Start(Action<string> started) { started(Probe()); }
-        internal override void Hold(bool held) { }
-        public override void Dispose() { }
-    }
-#else
     internal sealed class WindowsDictation : Dictation
     {
         private readonly object gate = new object();
@@ -51,6 +56,7 @@ namespace CapriDesktop
         private bool busy;
         private bool opened;
         private DateTime began;
+        private int quick;
 
         internal static string Probe()
         {
@@ -77,9 +83,44 @@ namespace CapriDesktop
             });
         }
 
+        // Windows speech's dictation language for her language: the one for their region first ("en-AU"), then the first that
+        // speaks it, Chinese by its script. Null when Windows speech doesn't have it, so it listens in its own language.
+        internal static string Tag(string language, IList<string> supported, string region)
+        {
+            if (language == null || supported == null) return null;
+            string code = Brain.LanguageCode(language);
+            string script = language == "Traditional Chinese" ? "TW|HK|MO|Hant" : language == "Simplified Chinese" ? "CN|SG|Hans" : null;
+            string first = null;
+            foreach (string tag in supported)
+            {
+                if (string.IsNullOrEmpty(tag)) continue;
+                string[] parts = tag.Split('-');
+                string lead = parts[0].ToLowerInvariant();
+                if (lead != code && !(code == "no" && (lead == "nb" || lead == "nn"))) continue;
+                if (script != null && !Regex.IsMatch(tag, "-(" + script + ")(-|$)", RegexOptions.IgnoreCase)) continue;
+                if (!string.IsNullOrEmpty(region) && parts.Length > 1 && string.Equals(parts[parts.Length - 1], region, StringComparison.OrdinalIgnoreCase)) return tag;
+                if (first == null) first = tag;
+            }
+            return first;
+        }
+
+        private static Windows.Globalization.Language Tongue(string language)
+        {
+            if (language == null) return null;
+            try
+            {
+                List<string> tags = new List<string>();
+                foreach (Windows.Globalization.Language one in SpeechRecognizer.SupportedTopicLanguages) tags.Add(one.LanguageTag);
+                string tag = Tag(language, tags, System.Globalization.RegionInfo.CurrentRegion.TwoLetterISORegionName);
+                return tag == null ? null : new Windows.Globalization.Language(tag);
+            }
+            catch (Exception) { return null; }
+        }
+
         private void Open()
         {
-            SpeechRecognizer made = new SpeechRecognizer();
+            Windows.Globalization.Language tongue = Tongue(Language);
+            SpeechRecognizer made = tongue == null ? new SpeechRecognizer() : new SpeechRecognizer(tongue);
             lock (gate)
             {
                 if (closed) { made.Dispose(); throw new ObjectDisposedException("Dictation"); }
@@ -90,6 +131,7 @@ namespace CapriDesktop
             if (compiled.Status != SpeechRecognitionResultStatus.Success) throw new IOException("Windows speech recognition couldn't load (" + compiled.Status + ").");
             try { made.ContinuousRecognitionSession.AutoStopSilenceTimeout = TimeSpan.FromMinutes(30); } catch (ArgumentException) { }
             made.ContinuousRecognitionSession.ResultGenerated += Result;
+            made.HypothesisGenerated += Guessed;
             made.ContinuousRecognitionSession.Completed += Ended;
             lock (gate)
             {
@@ -140,6 +182,12 @@ namespace CapriDesktop
             }
         }
 
+        private void Guessed(SpeechRecognizer sender, SpeechRecognitionHypothesisGeneratedEventArgs args)
+        {
+            Action<string> guessed = Partial;
+            if (guessed != null) guessed(args.Hypothesis.Text);
+        }
+
         private void Result(SpeechContinuousRecognitionSession session, SpeechContinuousRecognitionResultGeneratedEventArgs args)
         {
             SpeechRecognitionResult result = args.Result;
@@ -153,15 +201,18 @@ namespace CapriDesktop
         private void Ended(SpeechContinuousRecognitionSession session, SpeechContinuousRecognitionCompletedEventArgs args)
         {
             SpeechRecognitionResultStatus status = args.Status;
+            bool fatal = status == SpeechRecognitionResultStatus.MicrophoneUnavailable || status == SpeechRecognitionResultStatus.TopicLanguageNotSupported || status == SpeechRecognitionResultStatus.GrammarLanguageMismatch || status == SpeechRecognitionResultStatus.GrammarCompilationFailure;
             lock (gate)
             {
                 if (closed || !running) return;
                 running = false;
-                if ((status == SpeechRecognitionResultStatus.TimeoutExceeded || status == SpeechRecognitionResultStatus.Success) && DateTime.UtcNow - began > TimeSpan.FromSeconds(5))
+                quick = DateTime.UtcNow - began < TimeSpan.FromSeconds(5) ? quick + 1 : 0;
+                if (!fatal && quick < 3)
                 {
                     if (busy) return;
                     busy = true;
-                    ThreadPool.QueueUserWorkItem(delegate { Settle(); });
+                    bool pause = quick > 0;
+                    ThreadPool.QueueUserWorkItem(delegate { if (pause) Thread.Sleep(700); Settle(); });
                     return;
                 }
             }
@@ -196,8 +247,6 @@ namespace CapriDesktop
 
         public override void Dispose() { Close(); }
     }
-
-#endif
 
     internal sealed class StandInDictation : Dictation
     {
