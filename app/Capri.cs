@@ -16510,6 +16510,9 @@ namespace CapriDesktop
 
         private void SmokeBrainLayout(System.Collections.Generic.List<string> checks)
         {
+            // Let simulated sizes exceed the runner's virtual screen without clipping their page.
+            Size maximumWas = mainframe.MaximumSize;
+            mainframe.MaximumSize = new Size(8192, 8192);
             bool wasSettings = mainframe.SettingsShown;
             int wasSize = preferences.MainframeSize;
             foreach (int storedSize in new[] { 0, 100, 125, 150, 175, 200, -1, 50, 110, 250, int.MaxValue })
@@ -16572,7 +16575,7 @@ namespace CapriDesktop
                 checks.Add("LIMIT Mainframe display scaling: simulated pixel layouts do not confirm Windows text-setting notifications, real monitor moves, or high-DPI rendering; Windows may constrain simulated windows wider than this desktop, so those check text and overlaps without the viewport-edge check");
             }
             catch (System.Runtime.InteropServices.ExternalException) { checks.Add("LIMIT Mainframe text measurement: Windows text rendering is unavailable on this desktop"); }
-            finally { mainframe.LayoutScale(0, 0); mainframe.SizeMainframe(wasSize); mainframe.ShowSettings(wasSettings); }
+            finally { mainframe.MaximumSize = maximumWas; mainframe.LayoutScale(0, 0); mainframe.SizeMainframe(wasSize); mainframe.ShowSettings(wasSettings); }
         }
 
         private static void SmokeOpening(System.Collections.Generic.List<string> checks)
