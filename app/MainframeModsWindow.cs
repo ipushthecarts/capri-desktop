@@ -62,6 +62,7 @@ namespace CapriDesktop
                 ForeColor = White;
                 DoubleBuffered = true;
                 KeyPreview = true;
+                MaximumSize = new Size(Z(wide), Z(tall));
                 ClientSize = new Size(Z(wide), Z(tall));
                 Heading(this, heading, new Point(Z(24), Z(15)), Display(15f * zoom), Rose, 0);
                 Key shut = new Key();
