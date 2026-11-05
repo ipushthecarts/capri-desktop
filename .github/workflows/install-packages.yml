@@ -7,6 +7,7 @@ on:
     paths:
       - 'cross/**'
       - 'app/**'
+      - 'ci/**'
       - 'assets/**'
       - 'local-voice/**'
       - 'packaging/**'

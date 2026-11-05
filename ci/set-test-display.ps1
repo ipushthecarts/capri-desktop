@@ -23,15 +23,15 @@ public static class CapriTestDisplay {
         Mode current = new Mode();
         current.size = (ushort)Marshal.SizeOf(typeof(Mode));
         if (!EnumDisplaySettings(null, -1, ref current)) throw new Exception("Cannot read the test display mode.");
-        if (current.width >= 1920 && current.height >= 1080) return current.width + "x" + current.height;
+        if (current.width >= 2560 && current.height >= 1600) return current.width + "x" + current.height;
         for (int i = 0; ; i++) {
             Mode mode = new Mode(); mode.size = current.size;
             if (!EnumDisplaySettings(null, i, ref mode)) break;
-            if (mode.width < 1920 || mode.height < 1080) continue;
+            if (mode.width < 2560 || mode.height < 1600) continue;
             int result = ChangeDisplaySettings(ref mode, 0);
             if (result == 0) return mode.width + "x" + mode.height;
         }
-        throw new Exception("The Windows smoke tests need a 1920x1080 virtual desktop; current mode is " + current.width + "x" + current.height + ".");
+        throw new Exception("The Windows smoke tests need a 2560x1600 virtual desktop; current mode is " + current.width + "x" + current.height + ".");
     }
 }
 '@
