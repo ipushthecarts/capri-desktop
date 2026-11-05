@@ -549,7 +549,6 @@ namespace CapriDesktop
                     if (below)
                     {
                         y += shift;
-                        if (item.Y >= 256) y -= 24;
                         if (item.Y >= 499) y -= 117 + fold;
                     }
                     if (item.Y == 310) show &= voice == 3;

@@ -78,8 +78,9 @@ jobs:
         timeout-minutes: 5
         run: |
           chmod +x out/linux/Capri
-          xvfb-run -a -s '-screen 0 1920x1080x24' bash -c 'openbox & sleep 2; xcompmgr & sleep 1; out/linux/Capri --smoke "$PWD/smoke/linux"'
+          xvfb-run -a -s '-screen 0 1920x1080x24' bash -c 'openbox & sleep 2; xcompmgr & sleep 1; out/linux/Capri --smoke "$PWD/smoke/linux"' || smokeStatus=$?
           cat smoke/linux/smoke-test.txt
+          test "${smokeStatus:-0}" -eq 0
           ! grep -q '^FAIL' smoke/linux/smoke-test.txt
       - name: Package Debian, Arch, and portable Linux builds
         run: bash packaging/package-linux.sh 0.8.3+local.1
@@ -124,8 +125,9 @@ jobs:
       - name: Mac desktop smoke test
         timeout-minutes: 5
         run: |
-          "stage/mac-${{ matrix.arch }}/Capri Local.app/Contents/MacOS/Capri" --smoke "$PWD/smoke/mac-${{ matrix.arch }}"
+          "stage/mac-${{ matrix.arch }}/Capri Local.app/Contents/MacOS/Capri" --smoke "$PWD/smoke/mac-${{ matrix.arch }}" || smokeStatus=$?
           cat "smoke/mac-${{ matrix.arch }}/smoke-test.txt"
+          test "${smokeStatus:-0}" -eq 0
           ! grep -q '^FAIL' "smoke/mac-${{ matrix.arch }}/smoke-test.txt"
       - uses: actions/upload-artifact@v4
         with:
