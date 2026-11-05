@@ -26,17 +26,21 @@ namespace CapriDesktop
         {
             ThreadPool.QueueUserWorkItem(delegate
             {
-                string path = Path.Combine(Path.GetTempPath(), "capri-sound-" + Guid.NewGuid().ToString("N") + ".wav");
+                string path = null;
+                // A temp folder without write access used to end her on the sound worker.
                 try
                 {
+                    path = Path.Combine(Path.GetTempPath(), "capri-sound-" + Guid.NewGuid().ToString("N") + ".wav");
                     File.WriteAllBytes(path, Voice.Wave(samples, Sfx.Rate));
                     Music.Run(Player(), new[] { path });
                 }
-                catch (IOException) { }
+                catch (IOException error) { Brain.Log("sound", -1, error.Message); }
+                catch (UnauthorizedAccessException error) { Brain.Log("sound", -1, error.Message); }
                 finally
                 {
-                    try { File.Delete(path); }
-                    catch (IOException) { }
+                    try { if (path != null) File.Delete(path); }
+                    catch (IOException error) { Brain.Log("sound", -1, error.Message); }
+                    catch (UnauthorizedAccessException error) { Brain.Log("sound", -1, error.Message); }
                 }
             });
         }
@@ -53,9 +57,10 @@ namespace CapriDesktop
             int turn = Interlocked.Increment(ref speeches);
             ThreadPool.QueueUserWorkItem(delegate
             {
-                string path = Path.Combine(Path.GetTempPath(), "capri-voice-" + Guid.NewGuid().ToString("N") + ".wav");
+                string path = null;
                 try
                 {
+                    path = Path.Combine(Path.GetTempPath(), "capri-voice-" + Guid.NewGuid().ToString("N") + ".wav");
                     File.WriteAllBytes(path, wav);
                     ProcessStartInfo start = new ProcessStartInfo(Player()) { UseShellExecute = false, CreateNoWindow = true };
                     start.ArgumentList.Add(path);
@@ -68,11 +73,13 @@ namespace CapriDesktop
                         if (speaker == process) speaker = null;
                     }
                 }
-                catch (Exception) { }
+                catch (Exception error) { Brain.Log("voice", -1, error.Message); }
                 finally
                 {
-                    try { File.Delete(path); }
-                    catch (IOException) { }
+                    // Losing access to a voice file during playback must not end her in cleanup.
+                    try { if (path != null) File.Delete(path); }
+                    catch (IOException error) { Brain.Log("voice", -1, error.Message); }
+                    catch (UnauthorizedAccessException error) { Brain.Log("voice", -1, error.Message); }
                 }
             });
         }
@@ -97,24 +104,37 @@ namespace CapriDesktop
             };
             Hands.NowPlaying = delegate { return Song(OnMac); };
             Hands.Windows = delegate { return Windows(OnMac); };
+            Hands.Foreground = delegate { return Front(OnMac); };
+            Hands.Gamey = Game;
+            Hands.GameOpen = delegate
+            {
+                try { foreach (OpenWindow window in Hands.Windows()) if (Game(window)) return window.Title; }
+                catch (Exception) { }
+                return null;
+            };
             Hands.Steer = delegate(OpenWindow window, string action) { return Steer(window, action, OnMac); };
             Hands.Power = delegate(string action, int seconds) { return Power(action, seconds, OnMac); };
             Hands.Unlisted = delegate { return Blind; };
             Hands.Presses = false;
+            Hands.ThisComputer = OnMac ? "Mac" : "PC";
+            Hands.OnMac = OnMac;
             Hands.Instead = delegate(string name) { return Shortcut(name, OnMac); };
             Hands.SetVolume = delegate(double level) { return SetLevel(level, OnMac); };
             Hands.VolumeNow = delegate { return Level(OnMac); };
             Hands.MuteState = delegate { return Muted(OnMac); };
             Hands.SetMute = delegate(bool on) { return Mute(on, OnMac); };
             Hands.Chord = delegate { throw new PlatformNotSupportedException("keyboard shortcuts only work on Windows for now"); };
-            // A look is already in her transcript; anything else she did goes in as a job, like on Windows. A toggle switched
-            // off in Security holds the call so she asks first, and their yes runs it.
+            // A look is already in her transcript; anything else she did goes in as a job, like on Windows, except a check of what's
+            // open or installed. Something that can't work here gets her line saying why before Security could ask about it. A toggle
+            // switched off in Security holds the call so she asks first, and their yes runs it.
             brain.Act = delegate(string tool, ToolArguments args)
             {
+                string unable = Hands.Unable(tool, args);
+                if (unable != null) return unable;
                 string held = Security.Gate(tool, args);
                 if (held != null) return held;
                 string done = Hands.Do(tool, args);
-                if (tool != "look_at_screen" && !string.IsNullOrEmpty(done)) Brain.Transcribe(null, "Job: " + done);
+                if (tool != "look_at_screen" && !Hands.Checking(tool, args) && !string.IsNullOrEmpty(done)) Brain.Transcribe(null, "Job: " + done);
                 return done;
             };
             Hands.Resume = delegate(string text) { return Security.Resume(text, brain.Act); };
@@ -401,6 +421,15 @@ namespace CapriDesktop
             return found;
         }
 
+        internal static IntPtr Front(bool mac)
+        {
+            if (mac) return IntPtr.Zero;
+            string active = Music.Run("xprop", new[] { "-root", "_NET_ACTIVE_WINDOW" });
+            Match id = Regex.Match(active ?? "", @"\b0x([0-9a-fA-F]+)\b");
+            long handle;
+            return id.Success && long.TryParse(id.Groups[1].Value, System.Globalization.NumberStyles.HexNumber, System.Globalization.CultureInfo.InvariantCulture, out handle) ? new IntPtr(handle) : IntPtr.Zero;
+        }
+
         internal static bool Steer(OpenWindow window, string action, bool mac)
         {
             if (mac)
@@ -442,6 +471,12 @@ namespace CapriDesktop
 
         private static string Quoted(string text) { return (text ?? "").Replace("\\", "\\\\").Replace("\"", "\\\""); }
 
+        internal static bool Game(OpenWindow window)
+        {
+            return window != null && Regex.IsMatch(window.Program ?? "", @"^(?:javaw?|minecraft)$", RegexOptions.IgnoreCase)
+                && Regex.IsMatch(window.Title ?? "", @"^Minecraft\b", RegexOptions.IgnoreCase) && !Regex.IsMatch(window.Title, @"^Minecraft\s+Launcher\b", RegexOptions.IgnoreCase);
+        }
+
         // Shortcuts with a tool of their own on Mac and Linux. The rest need key presses, which only Windows has so far.
         internal static string Shortcut(string name, bool mac)
         {
@@ -470,7 +505,7 @@ namespace CapriDesktop
                 if (mac) { Launch("open", new[] { "-a", "Activity Monitor" }); return "Opened Activity Monitor."; }
                 foreach (string monitor in new[] { "gnome-system-monitor", "plasma-systemmonitor", "ksysguard", "xfce4-taskmanager", "mate-system-monitor", "lxtask" })
                     if (Has(monitor)) { Launch(monitor, new string[0]); return "Opened the system monitor."; }
-                return "Couldn't find a system monitor. Install one, like gnome-system-monitor, and ask again.";
+                return "Couldn't find a system monitor. Install " + ((Environment.GetEnvironmentVariable("XDG_CURRENT_DESKTOP") ?? "").ToLowerInvariant().Contains("kde") ? "plasma-systemmonitor" : "a system monitor") + ", then ask again.";
             }
             if (name == "show_desktop" && !mac && Music.Run("wmctrl", new[] { "-k", "on" }) != null) return "Showed the desktop.";
             return null;

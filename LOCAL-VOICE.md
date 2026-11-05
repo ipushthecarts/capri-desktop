@@ -1,6 +1,6 @@
 # Local voice integration notes
 
-This build is based on upstream Capri v0.7.8 plus the local fork changes described in README.md and UPSTREAM.md.
+This build is based on upstream Capri v0.8.3 plus the local fork changes described in README.md and UPSTREAM.md.
 
 ## Existing settings
 
@@ -20,8 +20,8 @@ These checks do not establish live speaker/microphone behavior, GPU/HD model com
 
 ## Manual checks after installing
 
-1. Confirm the version is 0.7.8 and old position/model/voice settings remain.
-2. Test the system voice without a speech API key.
+1. Confirm the version is 0.8.3 and old position/model/voice settings remain.
+2. Test the system voice without a speech API key, including the new Mac/Linux Mainframe System voice row.
 3. Start the Pocket service and test a preset and an existing local reference file.
 4. Toggle speech off and on, including during a pending reply.
 5. Stop the local service and confirm text replies remain available with an explanatory voice error.
@@ -31,3 +31,7 @@ These checks do not establish live speaker/microphone behavior, GPU/HD model com
 Original source and credit: https://github.com/lachydotmcg/capri-desktop
 
 Fork releases: https://github.com/ipushthecarts/capri-desktop/releases
+
+## 0.8 migration
+
+The new call-mode, mic-routing and provider settings are retained from upstream. Local speech still uses the selected provider. Existing Pocket reference paths, ports and mute state are not reset by this update. The 0.8 cross-platform backup settings file is retained alongside the fork migration marker. CPU-only local-brain markers continue to use the existing engine folder.

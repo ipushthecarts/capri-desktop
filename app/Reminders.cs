@@ -111,7 +111,7 @@ namespace CapriDesktop
                 }
                 DateTime when;
                 if (string.IsNullOrWhiteSpace(args.Text)) return "What should I remind you about?";
-                if (!Parse(args.When, Now(), out when)) return "What time should I remind you? Try in 20 minutes, at 5pm or tomorrow at 9.";
+                if (!Parse(args.When, Now(), out when)) return "What time should I remind you? Try in 20 minutes or on 5 December at 9am.";
                 changed.Add(new Reminder { Text = args.Text.Trim(), When = DateTime.SpecifyKind(when, DateTimeKind.Unspecified).ToString("o", CultureInfo.InvariantCulture) });
                 Write(remindersPath, changed);
                 reminders = changed;
@@ -187,6 +187,15 @@ namespace CapriDesktop
             finally { running.Remove(key); }
         }
 
+        // How a timer names itself, so "10 mins" and "10 minutes" are both a "10 minute" timer.
+        static string TimerSize(string span)
+        {
+            span = Regex.Replace(span.Trim(), @"^(?:an?|one) ", "1 ", RegexOptions.IgnoreCase);
+            span = Regex.Replace(span, @"\b(?:minutes|mins?)\b", "minute", RegexOptions.IgnoreCase);
+            span = Regex.Replace(span, @"\b(?:hours|hrs?)\b", "hour", RegexOptions.IgnoreCase);
+            return Regex.Replace(span, @"\b(?:seconds|secs?)\b", "second", RegexOptions.IgnoreCase);
+        }
+
         internal KeyValuePair<string, ToolArguments> Route(string said)
         {
             string text = Hands.Asked(said);
@@ -196,6 +205,9 @@ namespace CapriDesktop
             Match cancel = Regex.Match(text, @"^(?:cancel|remove|delete|forget)(?: the| my)? (.+?) reminder$", RegexOptions.IgnoreCase);
             if (!cancel.Success) cancel = Regex.Match(text, @"^(?:cancela (?:el )?recordatorio (?:de la |del |de )?|annule (?:le )?rappel (?:de |pour )?|(?:lösche|losche) (?:die )?erinnerung (?:an )?|anuluj przypomnienie (?:o )?|(?:cancele|cancela) (?:o )?lembrete (?:de |da |do )?)(.+)$", RegexOptions.IgnoreCase);
             if (cancel.Success && !Regex.IsMatch(Key(cancel.Groups[1].Value), @"^(?:the|my)$")) return Call("remind", new ToolArguments { Action = "cancel", Text = cancel.Groups[1].Value });
+            // "Cancel my timer" or "stop the 10 min timer": a timer is a reminder whose words say timer.
+            Match unset = Regex.Match(text, @"^(?:cancel|stop|remove|delete|forget|end|kill)(?: the| my)?((?: \S+)? (?:minutes?|mins?|hours?|hrs?|seconds?|secs?))? timer$", RegexOptions.IgnoreCase);
+            if (unset.Success) return Call("remind", new ToolArguments { Action = "cancel", Text = (TimerSize(unset.Groups[1].Value) + " timer").Trim() });
             Match forget = Regex.Match(text, @"^(?:forget|remove|delete)(?: the| my)? (.+?) routine$", RegexOptions.IgnoreCase);
             if (forget.Success && Steps(forget.Groups[1].Value) != null) return Call("routine", new ToolArguments { Action = "forget", Phrase = forget.Groups[1].Value });
             const string actions = @"(?:open|launch|start|run|play|turn|mute|unmute|pause|resume|close|switch|search|google|look|tell|send|write|type|press|click|take|show|set|remind|go|dance|shut|lock|join|leave|make|create|move)\b";
@@ -211,6 +223,14 @@ namespace CapriDesktop
                 @"^erinnere mich\s+(.+)$", @"^przypomnij mi\s+(.+)$", @"^(?:lembra[- ]me|lembre[- ]me|me lembre|me lembra)\s+(.+)$"
             };
             DateTime now = Now();
+            // A timer is a reminder that says it's done: "set a timer for 10 minutes", "timer 30 seconds" or "start a 5 minute timer".
+            const string Starting = @"^(?:(?:set|start|make|put on|put|give me)\s+(?:me\s+|up\s+)?(?:a\s+|an\s+)?)?";
+            Match timer = Regex.Match(text, Starting + @"timer\s+(?:for\s+)?(.+?)$", RegexOptions.IgnoreCase);
+            Match sized = Regex.Match(text, Starting + @"(\S+(?:\s+and\s+a\s+half)?)[\s-](minutes?|mins?|hours?|hrs?|seconds?|secs?)\s+timer$", RegexOptions.IgnoreCase);
+            string span = timer.Success ? timer.Groups[1].Value.Trim() : sized.Success ? sized.Groups[1].Value + " " + sized.Groups[2].Value : null;
+            DateTime timerDue;
+            if (span != null && Parse("in " + span, now, out timerDue))
+                return Call("remind", new ToolArguments { Text = "your " + TimerSize(span) + " timer is done", When = "in " + span });
             foreach (string starter in starters)
             {
                 Match ask = Regex.Match(text, starter, RegexOptions.IgnoreCase);
@@ -281,13 +301,15 @@ namespace CapriDesktop
         {
             when = now;
             string plain = Fold(text).TrimEnd('.', ',', '!', '?');
-            Match relative = Regex.Match(plain, @"^(?:in|en|dans|za|em|dentro de|daqui a)\s+(.*?)\s*(minutes?|mins?|minutos?|minuten|minut(?:e|y|a)?|hours?|hrs?|horas?|heures?|stunden?|godzin(?:e|y|a)?)$");
+            if (plain.StartsWith("on ", StringComparison.Ordinal) || Regex.IsMatch(plain, @"^\d{4}-\d{2}-\d{2}(?:\s|$)")) return Calendar(plain, now, out when);
+            Match relative = Regex.Match(plain, @"^(?:in|en|dans|za|em|dentro de|daqui a)\s+(.*?)\s*(minutes?|mins?|minutos?|minuten|minut(?:e|y|a)?|hours?|hrs?|horas?|heures?|stunden?|godzin(?:e|y|a)?|seconds?|secs?|segundos?|secondes?|sekunden?|sekund(?:e|y|a)?|days?|weeks?)$");
             if (relative.Success)
             {
                 string amount = relative.Groups[1].Value.Trim().TrimEnd('-');
                 double count = amount.Length == 0 ? 1 : Number(amount);
                 if (count <= 0) return false;
-                double minutes = count * (Regex.IsMatch(relative.Groups[2].Value, @"^(?:h|stund|godzin)") ? 60 : 1);
+                // Seconds are for timers, like a 30 second one.
+                double minutes = Regex.IsMatch(relative.Groups[2].Value, @"^weeks?$") ? count * 10080 : Regex.IsMatch(relative.Groups[2].Value, @"^days?$") ? count * 1440 : Regex.IsMatch(relative.Groups[2].Value, @"^(?:h|stund|godzin)") ? count * 60 : Regex.IsMatch(relative.Groups[2].Value, @"^(?:sec|seg|sek)") ? count / 60 : count;
                 try { when = now.AddMinutes(minutes); return when > now; }
                 catch (ArgumentOutOfRangeException) { return false; }
             }
@@ -312,6 +334,28 @@ namespace CapriDesktop
                 return true;
             }
             catch (ArgumentOutOfRangeException) { return false; }
+        }
+
+        private static bool Calendar(string text, DateTime now, out DateTime when)
+        {
+            when = now;
+            Match date = Regex.Match(text, @"^(?:on )?(\d{4}-\d{2}-\d{2}|\d{1,2}(?:st|nd|rd|th)? [a-z]+(?: \d{4})?|[a-z]+ \d{1,2}(?:st|nd|rd|th)?(?:,? \d{4})?)(?: (?:at )?(.+))?$");
+            if (!date.Success) return false;
+            string day = Regex.Replace(date.Groups[1].Value.Replace(",", ""), @"(?<=\d)(?:st|nd|rd|th)\b", "");
+            int hour = 9, minute = 0;
+            bool meridiem;
+            if (date.Groups[2].Success && !Clock(date.Groups[2].Value, out hour, out minute, out meridiem)) return false;
+            bool year = Regex.IsMatch(day, @"\b\d{4}\b");
+            string[] formats = { "yyyy-MM-dd", "d MMMM yyyy", "d MMM yyyy", "MMMM d yyyy", "MMM d yyyy" };
+            for (int next = 0; next <= (year ? 0 : 8) && now.Year + next <= 9999; next++)
+            {
+                DateTime picked;
+                if (!DateTime.TryParseExact(year ? day : day + " " + (now.Year + next).ToString(CultureInfo.InvariantCulture), formats, CultureInfo.InvariantCulture, DateTimeStyles.None, out picked)) continue;
+                when = picked.AddHours(hour).AddMinutes(minute);
+                if (when > now) return true;
+            }
+            when = now;
+            return false;
         }
 
         private static bool Clock(string text, out int hour, out int minute, out bool meridiem)

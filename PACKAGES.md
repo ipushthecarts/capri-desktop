@@ -9,8 +9,8 @@ These builds use local speech without ElevenLabs credits. Pocket TTS is optional
 | System | Download | Installation |
 | --- | --- | --- |
 | Windows 10/11, x64 | `Capri-Local-Setup.exe`, `Capri-Local.exe`, or `Capri-Local-Windows.zip` | Run the setup EXE to install, or run the standalone EXE. Use the ZIP for optional Pocket setup scripts. Requires .NET Framework 4.8. |
-| Debian/Ubuntu, x64 | `capri-local_0.7.8+local.1_amd64.deb` | `sudo apt install ./capri-local_0.7.8+local.1_amd64.deb` |
-| Arch, x64 | `capri-local-0.7.8.local.1-1-x86_64.pkg.tar.zst` | `sudo pacman -U ./capri-local-0.7.8.local.1-1-x86_64.pkg.tar.zst` |
+| Debian/Ubuntu, x64 | `capri-local_0.8.3+local.1_amd64.deb` | `sudo apt install ./capri-local_0.8.3+local.1_amd64.deb` |
+| Arch, x64 | `capri-local-0.8.3.local.1-1-x86_64.pkg.tar.zst` | `sudo pacman -U ./capri-local-0.8.3.local.1-1-x86_64.pkg.tar.zst` |
 | Other Linux, x64 | `Capri-Local-linux-x64.tar.gz` | Extract, then run `bash capri-local/install.sh`, or run `capri-local/Capri` directly. |
 | Mac, Apple Silicon | `Capri-Local-mac-arm64.dmg` | Open the disk image and drag Capri Local into Applications. |
 | Mac, Intel | `Capri-Local-mac-x64.dmg` | Open the disk image and drag Capri Local into Applications. |

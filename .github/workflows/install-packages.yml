@@ -25,7 +25,7 @@ concurrency:
 jobs:
   windows:
     runs-on: windows-latest
-    timeout-minutes: 20
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v5
@@ -45,7 +45,8 @@ jobs:
           Copy-Item PACKAGES.md dist/
           New-Item -ItemType Directory -Force release | Out-Null
           Copy-Item dist/Capri-Local.exe,dist/Capri-Local-Setup.exe release/
-          Compress-Archive -Path dist/* -DestinationPath release/Capri-Local-Windows.zip
+          $packageFiles = Get-ChildItem dist | Where-Object { $_.Name -ne 'smoke' }
+          Compress-Archive -Path $packageFiles.FullName -DestinationPath release/Capri-Local-Windows.zip
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -81,7 +82,7 @@ jobs:
           cat smoke/linux/smoke-test.txt
           ! grep -q '^FAIL' smoke/linux/smoke-test.txt
       - name: Package Debian, Arch, and portable Linux builds
-        run: bash packaging/package-linux.sh 0.7.8+local.1
+        run: bash packaging/package-linux.sh 0.8.3+local.1
       - name: Verify Debian package installs
         run: |
           sudo apt-get install -y ./release/*.deb
@@ -155,10 +156,10 @@ jobs:
         run: |
           cd release
           sha256sum * > SHA256SUMS.txt
-          tag=v0.7.8-local.1
+          tag=v0.8.3-local.1
           if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release upload "$tag" ./* --repo "$GITHUB_REPOSITORY" --clobber
-            gh release edit "$tag" --repo "$GITHUB_REPOSITORY" --draft=false --prerelease=false --latest --title 'Capri Local 0.7.8 - Windows, Linux and macOS' --notes-file ../packaging/RELEASE-NOTES.md
+            gh release edit "$tag" --repo "$GITHUB_REPOSITORY" --draft=false --prerelease=false --latest --title 'Capri Local 0.8.3 - Windows, Linux and macOS' --notes-file ../packaging/RELEASE-NOTES.md
           else
-            gh release create "$tag" ./* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --latest --title 'Capri Local 0.7.8 - Windows, Linux and macOS' --notes-file ../packaging/RELEASE-NOTES.md
+            gh release create "$tag" ./* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --latest --title 'Capri Local 0.8.3 - Windows, Linux and macOS' --notes-file ../packaging/RELEASE-NOTES.md
           fi

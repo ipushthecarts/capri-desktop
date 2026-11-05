@@ -1,4 +1,4 @@
-# Capri Local Voice 0.7.8
+# Capri Local Voice 0.8.3
 
 Capri for Windows, Linux and macOS, with local speech and no required ElevenLabs key or speech credits.
 
@@ -6,7 +6,7 @@ Capri for Windows, Linux and macOS, with local speech and no required ElevenLabs
 
 **Original Capri project:** https://github.com/lachydotmcg/capri-desktop
 
-This release incorporates upstream **0.7.0 through 0.7.8**, including its intermediate fixes. The original author's copyright, artwork credits, and [PolyForm Noncommercial license](LICENSE.md) remain in place. This is an unofficial fork, not an upstream release.
+This release incorporates upstream **0.7.0 through 0.8.3**, including its intermediate fixes. The original author's copyright, artwork credits, and [PolyForm Noncommercial license](LICENSE.md) remain in place. This is an unofficial fork, not an upstream release.
 
 ## Install
 
@@ -20,15 +20,16 @@ See [PACKAGES.md](PACKAGES.md) for commands and platform requirements.
 | Other Linux x64 | Portable `.tar.gz` with user-level installer |
 | Mac Apple Silicon / Intel | Separate `.dmg` installers and app ZIPs; macOS 15+ |
 
-## What changed from the previous fork
+## Changes in this update
 
-- Imported the complete upstream update history through tag `v0.7.8`, rather than copying selected release features.
-- Kept the newer Mainframe, local/custom voice controls, voice effects/layers, memory, model providers, game support, hands, hotkeys and platform improvements.
-- Replaced the old parallel speech hook with providers in upstream's current speech pipeline. The default system voice uses Windows speech, macOS `say`, or Linux `espeak-ng`. Generated audio passes through the current voice effects and playback code.
-- Added a Pocket TTS preset to Windows **CUSTOM LOCAL** setup. The bundled CPU server also works with the Mac/Linux **Local server** provider.
-- Migrated old system/Pocket voice choices, reference paths, ports and mute state once. Later voice selections are kept.
-- Kept settings in the fork's existing `Capri-Local` directory and disabled automatic upstream Windows installs, so an upstream installer cannot replace these modifications. Mac/Linux update notices check this fork.
-- Rebuilt native packages from the updated sources, with a full release and SHA-256 checksums.
+- Merged upstream history from the previous 0.7.8 fork through 0.8.3, including 0.7.9, 0.7.10 and 0.8.0–0.8.2.
+- Imported the new Windows call mode and microphone routing, interruption handling, call apps, smoother Settings, live reactions, mods, provider controls and Code/Husk Mode.
+- Imported the new Mac/Linux Mainframe, mods, provider keys, hooks and desktop improvements. System voice has its own selectable row in that Mainframe, alongside custom local and cloud speech.
+- Kept System voice, Pocket TTS launchers, direct Pocket model files, legacy settings migration and the existing Capri-Local data folders.
+- Preserved the fork's update links, separate installer identity, CPU-only brain marker and local release version comparisons.
+- Updated native builds, package versions and platform smoke checks. The Windows ZIP excludes smoke-test recordings, screenshots and settings.
+
+The separate Quest project is imported as upstream source under `quest/`. This desktop release does not build or bundle a Quest APK. Upstream Quest downloads remain at https://github.com/lachydotmcg/capri-desktop/releases .
 
 ## Local voice setup
 
@@ -47,7 +48,7 @@ A reference sample can be created separately with a voice-design tool such as Qw
 
 ## Upstream updates included
 
-See [UPSTREAM.md](UPSTREAM.md) for the imported versions and source commit. Upstream 0.7.8 already includes many local voice improvements, so this fork builds on those rather than maintaining the old 0.6.2 voice implementation.
+See [UPSTREAM.md](UPSTREAM.md) for the imported versions, source commit and fork-specific adaptations.
 
 Linux/Mac support typed questions with spoken replies; microphone chat remains Windows-only. Linux perching/window control depends on the desktop session; X11 and supported Hyprland setups have different capabilities from other Wayland sessions.
 
